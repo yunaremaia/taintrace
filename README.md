@@ -183,6 +183,10 @@ repos:
 | Phylum        | ✅        | Partial   | ❌       | ❌          |
 | **taintrace** | ❌        | ✅        | ✅       | ✅          |
 
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, parser contribution guidelines, and how to run tests.
+
 ## License
 
 MIT — see [LICENSE](LICENSE)

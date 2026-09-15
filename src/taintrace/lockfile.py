@@ -34,6 +34,8 @@ EXTENDED_FORMATS = {
     "package.resolved": ("swift", "_parse_package_resolved"),
     "package.swift": ("swift", "_parse_package_swift"),
     "mix.lock": ("elixir", "_parse_mix_lock"),
+    "environment.yml": ("conda", "_parse_conda_environment"),
+    "environment.yaml": ("conda", "_parse_conda_environment"),
 }
 
 
@@ -57,6 +59,46 @@ class LockfileParser:
         else:
             # Try as Cargo.lock by default
             return self._parse_cargo(path)
+
+    def _parse_conda_environment(self, path: Path) -> List[Dependency]:
+        """Parse top-level Conda dependencies from an environment file."""
+        deps = []
+        content = path.read_text(encoding="utf-8", errors="replace")
+        in_dependencies = False
+        dependencies_indent = 0
+        nested_indent = None
+        for raw_line in content.splitlines():
+            stripped = raw_line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            indent = len(raw_line) - len(raw_line.lstrip())
+            if stripped == "dependencies:":
+                in_dependencies = True
+                dependencies_indent = indent
+                continue
+            if in_dependencies and indent <= dependencies_indent:
+                break
+            if not in_dependencies or not stripped.startswith("-"):
+                continue
+            if nested_indent is not None:
+                if indent > nested_indent:
+                    continue
+                nested_indent = None
+            spec = stripped[1:].strip()
+            if not spec:
+                continue
+            if spec.endswith(":"):
+                nested_indent = indent
+                continue
+            spec = spec.split("#", 1)[0].strip().strip('"\'')
+            match = re.match(r"^([^<>=!~\s]+)\s*([<>=!~].*)?$", spec)
+            if match:
+                deps.append(Dependency(
+                    name=match.group(1),
+                    version=(match.group(2) or "").strip(),
+                    ecosystem="conda",
+                ))
+        return deps
 
     def _parse_poetry(self, path: Path) -> List[Dependency]:
         """Parse Poetry lockfile (poetry.lock TOML format)."""

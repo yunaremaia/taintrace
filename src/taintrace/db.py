@@ -17,6 +17,7 @@ class KnownPackagesDB:
             "php": self._PHP_PACKAGES,
             "swift": self._SWIFT_PACKAGES,
             "elixir": self._ELIXIR_PACKAGES,
+            "conda": self._CONDA_PACKAGES,
         }
 
     def is_known(self, name: str, ecosystem: str = "rust") -> bool:
@@ -85,6 +86,21 @@ class KnownPackagesDB:
         "typing-extensions", "annotated-types", "typing-inspection",
         "mcp", "httpx-sse", "pydantic-core", "anyio", "sniffio",
         "h11", "httpcore", "certifi", "click", "rich",
+    }
+
+    _CONDA_PACKAGES = _PYTHON_PACKAGES | {
+        "python", "pip", "numpy", "pandas", "scipy", "scikit-learn",
+        "matplotlib", "seaborn", "jupyter", "jupyterlab", "notebook",
+        "pytest", "requests", "sqlalchemy", "pydantic", "fastapi",
+        "flask", "django", "pyyaml", "setuptools", "wheel", "conda",
+        "conda-build", "mamba", "micromamba", "ipython", "ipykernel",
+        "sympy", "numba", "cython", "xarray", "dask", "bokeh",
+        "pillow", "opencv", "pytorch", "torchvision", "torchaudio",
+        "tensorflow", "keras", "transformers", "datasets", "tokenizers",
+        "huggingface_hub", "safetensors", "accelerate", "tqdm", "click",
+        "rich", "attrs", "packaging", "cryptography", "openssl",
+        "sqlite", "zlib", "libffi", "ncurses", "readline", "tk",
+        "cudatoolkit", "cudnn", "cmake", "ninja", "git", "curl",
     }
 
     _GO_PACKAGES = {

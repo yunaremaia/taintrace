@@ -10,6 +10,10 @@ AI coding agents install dependencies automatically. Typosquats pass undetected 
 
 Traditional scanners check *known-bad*. `taintrace` checks *suspicious-similar*.
 
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing, code style, and pull request guidelines.
+
 ## Install
 
 ```bash

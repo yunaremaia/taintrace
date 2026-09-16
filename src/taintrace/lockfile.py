@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import List, Optional
 import json
 import re
+import xml.etree.ElementTree as ET
 
 
 @dataclass
@@ -34,6 +35,7 @@ EXTENDED_FORMATS = {
     "package.resolved": ("swift", "_parse_package_resolved"),
     "package.swift": ("swift", "_parse_package_swift"),
     "mix.lock": ("elixir", "_parse_mix_lock"),
+    "pom.xml": ("java", "_parse_maven"),
 }
 
 
@@ -57,6 +59,33 @@ class LockfileParser:
         else:
             # Try as Cargo.lock by default
             return self._parse_cargo(path)
+
+    def _parse_maven(self, path: Path) -> List[Dependency]:
+        """Parse Maven pom.xml dependency entries."""
+        deps = []
+        try:
+            root = ET.parse(path).getroot()
+        except ET.ParseError:
+            return deps
+
+        def local_name(tag: str) -> str:
+            return tag.rsplit("}", 1)[-1]
+
+        for element in root.iter():
+            if local_name(element.tag) != "dependency":
+                continue
+            fields = {
+                local_name(child.tag): (child.text or "").strip()
+                for child in element
+            }
+            name = fields.get("artifactId", "")
+            if name:
+                deps.append(Dependency(
+                    name=name,
+                    version=fields.get("version", "0.0.0") or "0.0.0",
+                    ecosystem="java",
+                ))
+        return deps
 
     def _parse_poetry(self, path: Path) -> List[Dependency]:
         """Parse Poetry lockfile (poetry.lock TOML format)."""

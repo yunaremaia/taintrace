@@ -17,6 +17,7 @@ class KnownPackagesDB:
             "php": self._PHP_PACKAGES,
             "swift": self._SWIFT_PACKAGES,
             "elixir": self._ELIXIR_PACKAGES,
+            "java": self._JAVA_PACKAGES,
         }
 
     def is_known(self, name: str, ecosystem: str = "rust") -> bool:
@@ -215,6 +216,17 @@ class KnownPackagesDB:
         "github.com/siteline/swiftui-introspect",
         "github.com/snapkit/snapkit",
         "github.com/swiftyjson/swiftyjson",
+    }
+
+    _JAVA_PACKAGES = {
+        "spring-core", "spring-context", "spring-beans", "spring-web",
+        "spring-webmvc", "spring-boot", "spring-boot-starter",
+        "spring-boot-starter-web", "junit", "junit-jupiter",
+        "junit-jupiter-api", "mockito-core", "guava", "gson",
+        "jackson-core", "jackson-databind", "slf4j-api", "logback-classic",
+        "commons-lang3", "commons-io", "httpclient", "okhttp", "retrofit",
+        "hibernate-core", "h2", "mysql-connector-j", "postgresql",
+        "lombok", "mapstruct", "kotlin-stdlib", "scala-library",
     }
 
     _ELIXIR_PACKAGES = {

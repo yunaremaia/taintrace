@@ -331,23 +331,34 @@ class LockfileParser:
                 ))
         return deps
 
-    def _parse_go_sum(self, path: Path) -> List[Dependency]:
-        """Parse go.sum (Go)."""
+    @staticmethod
+    def parse_go_sum(content: str) -> list[Dependency]:
+        """Parse go.sum format."""
         deps = []
-        content = path.read_text()
         seen = set()
         for line in content.splitlines():
-            parts = line.strip().split()
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split()
             if len(parts) >= 2:
-                mod_name = parts[0]
-                if mod_name not in seen:
-                    seen.add(mod_name)
+                name = parts[0]
+                version = parts[1]
+                if version.endswith("/go.mod"):
+                    version = version[:-7]
+                if (name, version) not in seen:
+                    seen.add((name, version))
                     deps.append(Dependency(
-                        name=mod_name,
-                        version=parts[1],
-                        ecosystem="go"
+                        name=name,
+                        version=version,
+                        ecosystem="go",
                     ))
         return deps
+
+    def _parse_go_sum(self, path: Path) -> List[Dependency]:
+        """Parse go.sum (Go)."""
+        content = path.read_text(encoding="utf-8", errors="replace")
+        return self.parse_go_sum(content)
 
     def _parse_uv_lock(self, path: Path) -> List[Dependency]:
         """Parse uv.lock (Astral uv package manager for Python).
@@ -696,3 +707,6 @@ class LockfileParser:
             package_name = quoted_package or atom_package or lock_name
             deps.append(Dependency(name=package_name, version=version, ecosystem="elixir"))
         return deps
+
+
+parse_go_sum = LockfileParser.parse_go_sum

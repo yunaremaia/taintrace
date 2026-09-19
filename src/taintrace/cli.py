@@ -37,7 +37,7 @@ def cli():
               help="Similarity threshold (0.0-1.0)")
 @click.option("--ecosystem", "-e", default="auto",
               type=click.Choice([
-                  "auto", "rust", "node", "python", "go", "ruby", "php", "swift", "elixir"
+                  "auto", "rust", "node", "python", "go", "ruby", "php", "swift", "elixir", "java"
               ]),
               help="Package ecosystem (auto-detect from filename by default)")
 @click.option("--no-informational", is_flag=True,
@@ -129,22 +129,39 @@ def score(name: str, ecosystem: str):
     _output_single(result)
 
 
+# Known lockfile names for auto-discovery and ecosystem detection
+LOCKFILE_NAMES = {
+    "Cargo.lock": "rust",
+    "Cargo.toml": "rust",
+    "package-lock.json": "node",
+    "pnpm-lock.yaml": "node",
+    "yarn.lock": "node",
+    "bun.lock": "node",
+    "bun.lockb": "node",
+    "requirements.txt": "python",
+    "Pipfile.lock": "python",
+    "poetry.lock": "python",
+    "uv.lock": "python",
+    "pyproject.toml": "python",
+    "go.sum": "go",
+    "Gemfile.lock": "ruby",
+    "composer.json": "php",
+    "composer.lock": "php",
+    "Package.resolved": "swift",
+    "Package.swift": "swift",
+    "mix.lock": "elixir",
+    "build.gradle": "java",
+    "build.gradle.kts": "java",
+    "libs.versions.toml": "java",
+}
+
+_LOWER_LOCKFILE_NAMES = {name.lower(): eco for name, eco in LOCKFILE_NAMES.items()}
+
+
 def _detect_ecosystem(lockfile: Path) -> str:
     """Detect ecosystem from lockfile filename."""
     name = lockfile.name.lower()
-    if name in ("cargo.lock", "cargo.toml"):
-        return "rust"
-    elif name in ("package-lock.json", "pnpm-lock.yaml", "yarn.lock", "bun.lock", "bun.lockb"):
-        return "node"
-    elif name in ("requirements.txt", "poetry.lock"):
-        return "python"
-    elif name == "go.sum":
-        return "go"
-    elif name in ("package.resolved", "package.swift"):
-        return "swift"
-    elif name == "mix.lock":
-        return "elixir"
-    return "rust"
+    return _LOWER_LOCKFILE_NAMES.get(name, "rust")
 
 
 def _output_cli(results: list, suspects: list, lockfiles: list[Path]):
@@ -272,31 +289,6 @@ def _output_single(result: DetectionResult):
     else:
         console.print(f"[green]✅ {result.dependency.name}[/green] — {result.reason}")
 
-
-# Known lockfile names for auto-discovery
-LOCKFILE_NAMES = {
-    "Cargo.lock": "rust",
-    "Cargo.toml": "rust",
-    "package-lock.json": "node",
-    "pnpm-lock.yaml": "node",
-    "yarn.lock": "node",
-    "bun.lock": "node",
-    "bun.lockb": "node",
-    "requirements.txt": "python",
-    "Pipfile.lock": "python",
-    "poetry.lock": "python",
-    "uv.lock": "python",
-    "go.sum": "go",
-    "Gemfile.lock": "ruby",
-    "composer.json": "php",
-    "composer.lock": "php",
-    "Package.resolved": "swift",
-    "Package.swift": "swift",
-    "mix.lock": "elixir",
-    "build.gradle": "java",
-    "build.gradle.kts": "java",
-    "libs.versions.toml": "java",
-}
 
 # Directories to skip during recursive walk
 SKIP_DIRS = {".git", "node_modules", "vendor", ".vendor", "dist", "build", ".cache"}

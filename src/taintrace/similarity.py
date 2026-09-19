@@ -100,6 +100,8 @@ class SimilarityEngine:
         """Normalize a small, high-confidence set of Unicode confusables."""
         return s.lower().translate(self.CONFUSABLES)
 
+    _normalize_homoglyphs = normalize_homoglyphs
+
     def _homoglyph_similarity(self, s1: str, s2: str) -> float:
         """Compare names after normalizing visually confusable characters."""
         return self._levenshtein_similarity(

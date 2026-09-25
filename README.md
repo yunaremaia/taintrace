@@ -11,6 +11,7 @@
 - [Usage](#usage)
 - [Example typosquat reports](examples/reports/README.md)
 - [Algorithms](#algorithms)
+- [Python API reference](docs/api_reference.md)
 - [Multi-ecosystem](#multi-ecosystem)
 - [CI/CD integration](#cicd-integration)
 

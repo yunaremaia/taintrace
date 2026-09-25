@@ -50,16 +50,30 @@ class RiskScorer:
                 reason="Known legitimate package"
             )
 
+        # Check for potential dependency confusion / internal naming patterns
+        is_internal_pattern = (
+            package_name.startswith("@") or
+            any(k in package_name.lower() for k in ["-internal", "_internal", "internal-", "-private", "private-", "-corp", "corp-"])
+        )
+
         # Find similar known packages
         similar = self.db.get_similar(package_name, threshold=similarity_threshold, ecosystem=ecosystem)
 
         if not similar:
+            if is_internal_pattern:
+                return RiskResult(
+                    package_name=package_name,
+                    level=RiskLevel.HIGH,
+                    score=0.85,
+                    similar_packages=[],
+                    reason="Potential dependency confusion: internal package naming convention not found in public registry"
+                )
             return RiskResult(
                 package_name=package_name,
                 level=RiskLevel.MEDIUM,
                 score=0.3,
                 similar_packages=[],
-                reason="Unknown package — not in known packages list"
+                reason="Unknown package – not in known packages list"
             )
 
         # Calculate max similarity
@@ -75,10 +89,10 @@ class RiskScorer:
         indicator = " (homoglyph)" if homoglyph else ""
         if max_similarity >= 0.95:
             level = RiskLevel.CRITICAL
-            reason = f"Near-identical to '{max_similar[0]}' — likely typosquat{indicator}"
+            reason = f"Near-identical to '{max_similar[0]}' – likely typosquat{indicator}"
         elif max_similarity >= 0.85:
             level = RiskLevel.HIGH
-            reason = f"Very similar to '{max_similar[0]}' — possible typosquat{indicator}"
+            reason = f"Very similar to '{max_similar[0]}' – possible typosquat{indicator}"
         elif max_similarity >= 0.75:
             level = RiskLevel.MEDIUM
             reason = f"Somewhat similar to '{max_similar[0]}'"

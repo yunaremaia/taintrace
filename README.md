@@ -242,3 +242,7 @@ repos:
 ## License
 
 MIT — see [LICENSE](LICENSE)
+
+# taintrace
+
+![CI](https://github.com/yunaremaia/taintrace/actions/workflows/ci.yml/badge.svg)

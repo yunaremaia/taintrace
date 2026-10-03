@@ -9,10 +9,8 @@ import click
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
-from rich.text import Text
 
 from taintrace.detector import TyposquatDetector, DetectionResult
-from taintrace.scorer import RiskLevel
 from taintrace import __version__
 
 

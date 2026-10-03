@@ -2,15 +2,16 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 from taintrace.config import get_ignored_packages
+from taintrace.lockfile import Dependency
 
 
 @dataclass
 class DetectionResult:
     """Result of scanning a dependency."""
-    dependency: 'Dependency'  # Forward reference
+    dependency: Dependency
     is_suspect: bool
     risk_level: str
     risk_score: float
@@ -59,7 +60,6 @@ class TyposquatDetector:
     def scan_dependency(self, name: str, version: str = "0.0.0",
                         ecosystem: str = "rust") -> DetectionResult:
         """Scan a single dependency by name."""
-        from taintrace.lockfile import Dependency
         dep = Dependency(name=name, version=version, ecosystem=ecosystem)
         return self._score_dep(dep)
 

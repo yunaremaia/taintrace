@@ -2,6 +2,16 @@
 
 All notable changes to taintrace will be documented in this file.
 
+## [Unreleased]
+
+## [0.2.2] - 2026-10-03
+
+### Added
+- A PyPI downloads badge in the README, linking to the project page.
+- `Source` added to `[project.urls]`, and new discovery keywords:
+  `typosquatting`, `dependency-confusion`, `package-name`, `pypi`, `npm`,
+  `maven`. The terms people actually search were previously absent.
+
 ## [0.2.0] - 2026-09-11
 
 ### Added

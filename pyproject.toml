@@ -55,3 +55,23 @@ pythonpath = ["src"]
 
 [tool.coverage.run]
 source = ["src/taintrace"]
+
+# The gate. ``[tool.coverage.run]`` alone only *measures* coverage: pytest-cov
+# printed the number and exited 0 whatever it said, so a regression landed
+# silently. ``fail_under`` here is the single source of truth for both local and
+# CI runs -- do NOT move it to a --cov-fail-under flag in the workflow.
+#
+# ``precision = 2`` is what makes this strict: coverage compares the total
+# ROUNDED to that precision. At the default precision of 0 a fail_under of 99
+# would accept anything from 98.51% upward -- a full point of silent rot below
+# the number it reads as. At precision 2 this floor rejects the run as soon as
+# a single further statement goes uncovered.
+#
+# 1093/1094 statements = 99.91%. The one uncovered statement is the trailing
+# `else: clean[key] = v` in validate_config, which is unreachable: every key in
+# VALID_CONFIG_KEYS is matched by an explicit branch above it. If that branch is
+# ever reachable, add a test for it rather than lowering this number.
+[tool.coverage.report]
+precision = 2
+fail_under = 99.9
+show_missing = true

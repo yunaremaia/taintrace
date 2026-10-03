@@ -91,8 +91,21 @@ def top_level_imports() -> set[str]:
     return found
 
 
+def stdlib_import_names() -> set[str]:
+    """Module names that are the standard library, not a distribution.
+
+    ``tomllib`` is in ``sys.stdlib_module_names`` only from 3.11, and
+    ``tomli_w`` is not in it on any version, so both are added explicitly.
+    Extracted as a named helper because the 3.10 behaviour cannot be observed
+    by a test running on a newer interpreter: without this function the only
+    place to check the addition is the interpreter that needs it, and by then
+    nothing is checking.
+    """
+    return set(sys.stdlib_module_names) | {"tomllib", "tomli_w"}
+
+
 def third_party_imports() -> set[str]:
-    stdlib = set(sys.stdlib_module_names) | {"tomllib", "tomli_w"}
+    stdlib = stdlib_import_names()
     first_party = {MODULE_NAME}
     subpackages = {
         p.name for p in PACKAGE_ROOT.iterdir()
@@ -128,10 +141,15 @@ def read_pyproject_dependencies() -> list[str]:
     ]
 
 
-def declared_import_names() -> set[str]:
-    """Import names implied by [project] dependencies in pyproject.toml."""
+def declared_import_names_for(specs: list[str]) -> set[str]:
+    """Import names implied by a list of ``[project] dependencies`` entries.
+
+    Split out from ``declared_import_names`` so the parsing rules can be tested
+    one spec at a time: with the pyproject read baked in, the only way to
+    exercise a version-operator form is to write a whole fake pyproject for it.
+    """
     names = set()
-    for spec in read_pyproject_dependencies():
+    for spec in specs:
         dist = spec.split(";", 1)[0]
         for sep in ("<", ">", "=", "!", "~", "[", " ", "@"):
             dist = dist.split(sep, 1)[0]
@@ -140,6 +158,11 @@ def declared_import_names() -> set[str]:
             continue
         names.add(canonical(IMPORT_ALIASES.get(dist, dist)))
     return names
+
+
+def declared_import_names() -> set[str]:
+    """Import names implied by [project] dependencies in pyproject.toml."""
+    return declared_import_names_for(read_pyproject_dependencies())
 
 
 def test_every_import_is_declared_in_pyproject() -> None:
@@ -185,11 +208,53 @@ def _package_not_found_fallback_lines(tree: ast.AST) -> set[int]:
         for handler in node.handlers:
             for stmt in handler.body:
                 for inner in ast.walk(stmt):
+                    # AnnAssign as well as Assign: ``__version__: str = "..."``
+                    # assigns the name just the same, and reading only Assign
+                    # would let an annotated literal evade the check entirely.
                     if isinstance(inner, ast.Assign):
-                        for target in inner.targets:
-                            if isinstance(target, ast.Name) and target.id == "__version__":
-                                guarded.add(inner.lineno)
+                        targets: list[ast.expr] = list(inner.targets)
+                        lineno = inner.lineno
+                    elif isinstance(inner, ast.AnnAssign):
+                        targets = [inner.target]
+                        lineno = inner.lineno
+                    else:
+                        continue
+                    for target in targets:
+                        if isinstance(target, ast.Name) and target.id == "__version__":
+                            guarded.add(lineno)
     return guarded
+
+
+def _version_literal_assignments(tree: ast.AST) -> list[tuple[int, str]]:
+    """Every ``__version__ = "literal"`` in the tree, annotated form included.
+
+    Returns ``(lineno, kind)`` so the failure message can say which form was
+    found. Both ``ast.Assign`` and ``ast.AnnAssign`` count: a version literal
+    does not become safe by growing a type annotation, and a checker that only
+    reads one of them silently stops guarding the other.
+    """
+    found: list[tuple[int, str]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            is_version = any(
+                isinstance(t, ast.Name) and t.id == "__version__" for t in node.targets
+            )
+            kind = "assignment"
+        elif isinstance(node, ast.AnnAssign):
+            is_version = (
+                isinstance(node.target, ast.Name)
+                and node.target.id == "__version__"
+            )
+            kind = "annotated assignment"
+        else:
+            continue
+        if (
+            is_version
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        ):
+            found.append((node.lineno, kind))
+    return found
 
 
 def test_version_is_not_a_literal_assignment() -> None:
@@ -198,21 +263,16 @@ def test_version_is_not_a_literal_assignment() -> None:
     tree = ast.parse(init.read_text(encoding="utf-8"), filename=str(init))
     guarded = _package_not_found_fallback_lines(tree)
 
-    literals = [
-        node
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Assign)
-        and any(isinstance(t, ast.Name) and t.id == "__version__" for t in node.targets)
-        and isinstance(node.value, ast.Constant)
-        and isinstance(node.value.value, str)
+    stale = [
+        (lineno, kind)
+        for lineno, kind in _version_literal_assignments(tree)
+        if lineno not in guarded
     ]
-
-    stale = [n for n in literals if n.lineno not in guarded]
     assert not stale, (
-        f"{init.name}:{stale[0].lineno} assigns __version__ a string literal "
-        "outside an `except PackageNotFoundError` handler. Use "
-        "importlib.metadata.version(DIST_NAME) so the reported version always "
-        "matches the installed metadata."
+        f"{init.name}:{stale[0][0]} assigns __version__ a string literal "
+        f"({stale[0][1]}) outside an `except PackageNotFoundError` handler. "
+        "Use importlib.metadata.version(DIST_NAME) so the reported version "
+        "always matches the installed metadata."
     )
 
 

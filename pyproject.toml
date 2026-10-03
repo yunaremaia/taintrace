@@ -4,13 +4,25 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "taintrace"
-version = "0.2.1"
+version = "0.2.2"
 description = "Typosquat detector for AI coding agent dependencies"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
 authors = [{name = "Yunare Maia", email = "yunare@gmail.com"}]
-keywords = ["security", "supply-chain", "typosquat", "ai-agents", "dependencies"]
+keywords = [
+    "security",
+    "supply-chain",
+    "typosquat",
+    "typosquatting",
+    "dependency-confusion",
+    "package-name",
+    "pypi",
+    "npm",
+    "maven",
+    "ai-agents",
+    "dependencies",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -37,7 +49,11 @@ taintrace = "taintrace.cli:cli"
 dev = ["pytest>=7.0", "pytest-cov>=4.0", "ruff>=0.1"]
 
 [project.urls]
+# No docs site is deployed for this repo, so Homepage deliberately stays on the
+# repository: PyPI already links the source, and a link to a docs/ directory
+# that is not served would be a dead link on the project's most visible page.
 Homepage = "https://github.com/yunaremaia/taintrace"
+Source = "https://github.com/yunaremaia/taintrace"
 Issues = "https://github.com/yunaremaia/taintrace/issues"
 Funding = "https://github.com/sponsors/yunaremaia"
 Changelog = "https://github.com/yunaremaia/taintrace/blob/main/CHANGELOG.md"

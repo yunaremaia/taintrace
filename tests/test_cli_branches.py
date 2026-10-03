@@ -170,10 +170,15 @@ class TestCheckInvocation:
         """A config ecosystem behaves exactly like the equivalent --ecosystem flag.
 
         ``unknown.lockfile`` has no known parser, so it is read as a Cargo.lock
-        and each dependency keeps the ``rust`` ecosystem the parser recorded.
-        Scoring follows that per-dependency ecosystem, which is why ``reqeusts``
-        -- a CRITICAL typosquat of the python ``requests`` -- comes back MEDIUM
-        here. The config file and the flag agree; neither overrides the parser.
+        and each dependency records the ``rust`` ecosystem the parser detected.
+        An explicit ecosystem — from the config or the flag — overrides that, so
+        ``reqeusts`` is scored as a python package and comes back CRITICAL, the
+        same as when the python ecosystem is auto-detected from a
+        requirements.txt.
+
+        Previously the override was stored and never read, so all three cases
+        scored as rust and this test asserted MEDIUM, encoding the bug as
+        intended behaviour. See #157.
         """
         config_file = tmp_path / ".taintrace.toml"
         config_file.write_text('[taintrace]\necosystem = "python"\n', encoding="utf-8")
@@ -197,7 +202,7 @@ class TestCheckInvocation:
         config_results = json.loads(from_config.output)["results"]
         flag_results = json.loads(from_flag.output)["results"]
 
-        assert [item["risk_level"] for item in config_results] == ["MEDIUM"]
+        assert [item["risk_level"] for item in config_results] == ["CRITICAL"]
         assert flag_results == config_results
         assert json.loads(as_python.output)["results"][0]["risk_level"] == "CRITICAL"
 

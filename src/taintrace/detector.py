@@ -23,7 +23,12 @@ class TyposquatDetector:
     """Detect typosquatting in lockfiles."""
 
     def __init__(self, ecosystem: str = "rust", similarity_threshold: float = 0.7):
-        """Initialize detector for specific ecosystem."""
+        """Initialize detector for specific ecosystem.
+
+        `ecosystem` is applied to every dependency scanned, overriding the
+        value each parser assigned. Pass "auto" to leave the parser's
+        ecosystem in place.
+        """
         from taintrace.db import KnownPackagesDB
         from taintrace.scorer import RiskScorer
         self.ecosystem = ecosystem
@@ -43,6 +48,9 @@ class TyposquatDetector:
         for dep in deps:
             if dep.name in ignored:
                 continue
+            if self.ecosystem and self.ecosystem != "auto":
+                # an explicit --ecosystem overrides what the parser detected
+                dep.ecosystem = self.ecosystem
             result = self._score_dep(dep)
             results.append(result)
 

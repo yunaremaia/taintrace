@@ -1,7 +1,6 @@
 """Similarity algorithms for package name comparison."""
 
 import functools
-from typing import List, Tuple
 
 from rapidfuzz.distance import Levenshtein
 

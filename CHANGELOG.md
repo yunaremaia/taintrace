@@ -4,6 +4,21 @@ All notable changes to taintrace will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- `DetectionResult.dependency` was annotated as the string `'Dependency'`
+  while the name was never imported at module scope, so the annotation was
+  unresolvable: `typing.get_type_hints(DetectionResult)` raised `NameError`.
+  Consumers that introspect the dataclass at runtime (serializers, schema
+  generators) hit that error. The annotation now resolves.
+
+### Added
+- A ruff (`F` / pyflakes) lint gate in CI. The repo previously had no
+  linter, which is how the annotation bug above survived undetected.
+
+### Removed
+- Four unused imports (`Text`, `RiskLevel`, `List`, `Tuple`) found by the new
+  gate.
+
 ## [0.2.2] - 2026-10-03
 
 ### Added

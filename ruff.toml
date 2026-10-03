@@ -1,0 +1,24 @@
+# Ruff configuration for taintrace.
+#
+# The lint gate is deliberately narrow. `F` (pyflakes) catches the class of
+# defect that no runtime test would: a name used but never imported, a
+# redefined binding, a comparison that can never be true. Before this gate
+# the repo had no linter at all, which is how
+# `DetectionResult.dependency: 'Dependency'` shipped with an unresolvable
+# annotation (`get_type_hints()` raised NameError) for its entire life.
+#
+# Style rules (E501, I001, UP, B) are intentionally NOT enabled yet: enabling
+# them means a large reformat that is hard to review, and a noisy first gate
+# gets disabled rather than fixed. Widen the selection deliberately, with the
+# reformat in its own commit.
+
+target-version = "py310"
+line-length = 100
+
+[lint]
+select = ["F"]
+
+[lint.per-file-ignores]
+# Test modules legitimately import optional fixtures and probe internal
+# helpers; F401 there would be noise, not signal.
+"tests/*" = ["F401"]

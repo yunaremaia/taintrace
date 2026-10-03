@@ -6,7 +6,7 @@ from taintrace.db import KnownPackagesDB, UnknownEcosystemError
 from taintrace.scorer import RiskScorer, RiskResult, RiskLevel
 from taintrace.detector import TyposquatDetector, DetectionResult
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 __all__ = [
     "LockfileParser",

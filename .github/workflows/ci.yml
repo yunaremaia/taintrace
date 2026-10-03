@@ -16,5 +16,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install
         run: pip install -e .[dev]
+      # The coverage floor is configured once in pyproject.toml
+      # ([tool.coverage.report] fail_under). pytest-cov picks it up from there,
+      # so this step fails the job when coverage drops -- it is not just a
+      # printed number. Do not add --cov-fail-under here: two floors would let
+      # one silently weaken the other.
       - name: Test
         run: python -m pytest tests/ -v --cov=taintrace --cov-report=term-missing

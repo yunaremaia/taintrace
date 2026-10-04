@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "taintrace"
-version = "0.2.2"
+version = "0.2.3"
 description = "Typosquat detector for AI coding agent dependencies"
 readme = "README.md"
 license = {text = "MIT"}
@@ -58,10 +58,15 @@ taintrace = "taintrace.cli:cli"
 dev = ["pytest>=7.0", "pytest-cov>=4.0", "ruff>=0.1"]
 
 [project.urls]
-# No docs site is deployed for this repo, so Homepage deliberately stays on the
-# repository: PyPI already links the source, and a link to a docs/ directory
-# that is not served would be a dead link on the project's most visible page.
-Homepage = "https://github.com/yunaremaia/taintrace"
+# Homepage is the documentation site, not the repository: PyPI already renders
+# the source next to this list, so the prominent slot earns its place by
+# pointing at the guides a visitor actually lands on. Both URLs below are
+# served by the `docs`/`deploy-docs` jobs in .github/workflows/ci.yml -- they are
+# NOT links to the docs/ directory in this repository, which is a source tree,
+# not a site. `Documentation` deep-links to the first guide rather than repeating
+# `Homepage`, so the landing page does not advertise one URL twice.
+Homepage = "https://yunaremaia.github.io/taintrace/"
+Documentation = "https://yunaremaia.github.io/taintrace/getting-started/"
 Source = "https://github.com/yunaremaia/taintrace"
 Issues = "https://github.com/yunaremaia/taintrace/issues"
 Funding = "https://github.com/sponsors/yunaremaia"

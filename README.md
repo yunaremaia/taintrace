@@ -273,7 +273,7 @@ If this tool is useful to you, a star helps other people find it.
 - **[driftcheck](https://github.com/yunaremaia/driftcheck)** — detect version drift between docs and toolchain files
 - **[depscan](https://github.com/yunaremaia/depscan)** — scan dependencies across multiple ecosystems
 - **[agentcost](https://github.com/yunaremaia/agentcost)** — track and attribute LLM spend per agent
-- **[vibeguard](https://github.com/yunaremaia/vibeguard)** — guardrails for AI-generated code changes
+- **[vibeguard](https://github.com/yunaremaia/vibeguard)** — scan AI-generated code for hardcoded secrets, SQL injection and dangerous eval/exec
 
 Part of a family of focused, single-purpose developer tools — each one does one thing
 and does it well.

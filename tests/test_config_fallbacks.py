@@ -6,6 +6,16 @@ built-in fallback parser, and a malformed-file guard. Without PyYAML installed
 the real YAML tests in ``test_config.py`` only ever exercise the fallback, so
 these tests drive the PyYAML path through a stub module and assert what the
 parser does with whatever ``yaml.safe_load`` hands back.
+
+PyYAML is now a declared dependency, so in CI it is installed and the
+``except ImportError`` branch is only reachable by making the import fail
+explicitly. That branch, and the value-coercion arms of the fallback parser,
+were previously covered only by accident: while PyYAML was undeclared the real
+YAML tests silently fell through to the fallback. Declaring the dependency
+removed that accident, so the fallback is now pinned from both sides -- a stub
+for the PyYAML arm, a blocked import for the fallback arm. A test that only
+runs on the branch the developer's own environment happens to take is not a
+test of the degradation path.
 """
 
 from __future__ import annotations
@@ -139,6 +149,127 @@ class TestSimpleYamlFallback:
 
         assert _simple_yaml_fallback(missing) == {}
 
+    def test_no_is_read_as_false(self, tmp_path: Path) -> None:
+        """The false arm is a separate branch from the true arm, not a shared one."""
+        config_file = tmp_path / ".taintrace.yaml"
+        config_file.write_text("no_informational: no\n", encoding="utf-8")
+
+        assert _simple_yaml_fallback(config_file) == {"no_informational": False}
+
+    def test_numeric_values_are_coerced_to_int_and_float(self, tmp_path: Path) -> None:
+        """A bare scalar goes through the int()/float() coercion, not to str."""
+        config_file = tmp_path / ".taintrace.yaml"
+        config_file.write_text("threshold: 0.42\nretries: 3\n", encoding="utf-8")
+
+        parsed = _simple_yaml_fallback(config_file)
+
+        assert parsed["threshold"] == 0.42
+        assert isinstance(parsed["threshold"], float)
+        assert parsed["retries"] == 3
+        assert isinstance(parsed["retries"], int)
+
+    def test_non_numeric_scalar_is_kept_as_a_quoted_string(self, tmp_path: Path) -> None:
+        """The ValueError arm keeps the value, with any surrounding quotes removed."""
+        config_file = tmp_path / ".taintrace.yaml"
+        config_file.write_text("ecosystem: 'rust'\nformat: \"json\"\n", encoding="utf-8")
+
+        assert _simple_yaml_fallback(config_file) == {
+            "ecosystem": "rust",
+            "format": "json",
+        }
+
+    def test_quoted_yaml_is_not_disagreeing_with_real_yaml(self, tmp_path: Path) -> None:
+        """Why PyYAML is declared rather than left to this fallback.
+
+        The fallback is a hand-rolled subset, so it silently disagrees with real
+        YAML on constructs as ordinary as a trailing comment and quoted
+        booleans. This test is the regression guard for the dependency being
+        declared: it asserts the two parsers agree on this document, so the
+        package's behaviour cannot drift back to whichever parser happens to be
+        importable in the test environment.
+        """
+        yaml = pytest.importorskip(
+            "yaml", reason="PyYAML is a declared dependency; a bare checkout may lack it"
+        )
+        document = (
+            "# trailing comment\n"
+            "taintrace:\n"
+            "  threshold: 0.42\n"
+            "  format: json\n"
+            "  no_informational: false\n"
+            "  ignore: [alpha, beta]\n"
+        )
+        config_file = tmp_path / ".taintrace.yaml"
+        config_file.write_text(document, encoding="utf-8")
+
+        assert yaml.safe_load(document) == {
+            "taintrace": {
+                "threshold": 0.42,
+                "format": "json",
+                "no_informational": False,
+                "ignore": ["alpha", "beta"],
+            }
+        }
+        assert parse_config_file(config_file) == {
+            "threshold": 0.42,
+            "format": "json",
+            "no_informational": False,
+            "ignore": ["alpha", "beta"],
+        }
+
+
+class TestYamlImportFallback:
+    """The ``except ImportError`` arm of ``_parse_yaml_file``.
+
+    Reachable only by making ``import yaml`` fail, which is exactly what a
+    user installing a broken or absent PyYAML hits -- and, before PyYAML was a
+    declared dependency, what every CI run hit by accident.
+    """
+
+    @pytest.fixture
+    def without_yaml(self, monkeypatch: pytest.MonkeyPatch):
+        real_import = builtins.__import__
+
+        def blocked_import(name, *args, **kwargs):
+            if name == "yaml":
+                raise ImportError(name)
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", blocked_import)
+        monkeypatch.delitem(sys.modules, "yaml", raising=False)
+
+    def test_missing_pyyaml_falls_back_to_the_simple_parser(
+        self, tmp_path: Path, without_yaml
+    ) -> None:
+        # Flat, not nested: the fallback has no notion of indentation, so a
+        # ``taintrace:`` table with children under it is exactly the shape it
+        # cannot read. That limitation is the reason PyYAML is a declared
+        # dependency rather than an optional nicety.
+        config_file = tmp_path / ".taintrace.yaml"
+        config_file.write_text("threshold: 0.65\n", encoding="utf-8")
+
+        assert _parse_yaml_file(config_file) == {"threshold": 0.65}
+
+    def test_missing_pyyaml_still_returns_an_empty_mapping_for_a_nested_table(
+        self, tmp_path: Path, without_yaml
+    ) -> None:
+        """The degradation path degrades, it does not crash or invent values."""
+        config_file = tmp_path / ".taintrace.yml"
+        config_file.write_text("taintrace:\n  ecosystem: rust\n", encoding="utf-8")
+
+        # ``taintrace:`` with no inline value becomes an empty list key and the
+        # nested ``ecosystem:`` lands at the top level. Asserted exactly, so a
+        # future change that makes the fallback silently drop data fails here.
+        assert _parse_yaml_file(config_file) == {"taintrace": [], "ecosystem": "rust"}
+
+    def test_missing_pyyaml_and_an_unreadable_file_yields_an_empty_mapping(
+        self, tmp_path: Path, without_yaml
+    ) -> None:
+        """Both degradation paths composed: no parser and no file."""
+        missing = tmp_path / "absent.yaml"
+
+        assert _parse_yaml_file(missing) == {}
+
 
 class TestTomlBackend:
     """``_parse_toml_file`` when no TOML reader is importable at all."""
@@ -256,6 +387,40 @@ class TestValidateConfigBranches:
 
         assert validated["no_informational"] is True
         assert validated["output_format"] == "sarif"
+
+    def test_a_newly_recognised_key_passes_through_unchanged(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The trailing ``else`` arm: a valid key with no dedicated normaliser.
+
+        Every key currently in ``VALID_CONFIG_KEYS`` has an explicit branch
+        above it, so that arm is unreachable through the shipped key set -- but
+        it is the forward-compatibility contract: when a key is added to
+        ``VALID_CONFIG_KEYS`` and given no normalisation rule of its own, its
+        value must reach the caller intact rather than being silently dropped
+        by the ``key not in VALID_CONFIG_KEYS`` guard. Adding the key to the
+        accepted set is what makes the branch reachable, so this test is the
+        only way to assert it at all; without it, the one uncovered statement
+        in the package would be this line, with no test to say what it is for.
+
+        ``setattr`` with a rebuilt set rather than ``monkeypatch.setitem``,
+        which requires a Mapping and would raise on a set.
+        """
+        monkeypatch.setattr(
+            config_module,
+            "VALID_CONFIG_KEYS",
+            config_module.VALID_CONFIG_KEYS | {"severity_floor"},
+        )
+
+        assert validate_config({"severity_floor": "high"}) == {"severity_floor": "high"}
+
+    def test_a_recognised_key_that_is_not_accepted_is_still_dropped(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The pass-through must not leak: an unrecognised key is still filtered."""
+        validated = validate_config({"totally_made_up": "x", "threshold": 0.5})
+
+        assert validated == {"threshold": 0.5}
 
 
 class TestFindDefaultConfig:

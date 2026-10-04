@@ -38,6 +38,15 @@ dependencies = [
     "click>=8.1",
     "rich>=13.0",
     "rapidfuzz>=3.0",
+    # config.py parses the TOML and YAML config files through a
+    # tomllib/tomli and a yaml/pyyaml try/except. Without these declared, a
+    # `pip install` of the wheel silently ignores the user's config on the
+    # interpreters where the stdlib tomllib is absent or PyYAML is missing --
+    # an ignored package is then reported as a CRITICAL typosquat. The YAML
+    # fallback parser is a hand-rolled subset, so it silently disagrees with
+    # real YAML on constructs as ordinary as a trailing comment.
+    "tomli>=2.0; python_version < '3.11'",
+    "pyyaml>=6.0",
 ]
 
 [project.scripts]

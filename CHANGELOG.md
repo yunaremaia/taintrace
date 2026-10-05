@@ -4,6 +4,25 @@ All notable changes to taintrace will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-10-05
+
+### Added
+- **Verified Python 3.13 support.** The `Programming Language :: Python :: 3.13`
+  classifier is published and a 3.13 leg joins the CI test matrix
+  (now 3.10 / 3.11 / 3.12 / 3.13 / 3.14). The classifiers skipped 3.13 entirely,
+  so PyPI's version filter hid taintrace from anyone filtering by the Python
+  they actually run — the package installed fine and simply did not appear. The
+  classifier is only correct because the full suite was run on CPython 3.13.16
+  first: 426 passed, 1 skipped, 100% coverage.
+
+- **`test_the_declared_versions_are_a_contiguous_run` derives the expected
+  version set instead of listing it.** The existing matrix/classifier agreement
+  test compares two hand-maintained lists, so it cannot notice a version missing
+  from *both* — which is exactly how 3.13 shipped unclassified with a green
+  suite. The new test builds the expected run from the `requires-python` floor
+  up to the highest declared classifier, so dropping any version between the two
+  ends fails it.
+
 ## [0.2.4] - 2026-10-05
 
 ### Added

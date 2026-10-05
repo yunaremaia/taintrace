@@ -40,6 +40,23 @@ def _test_matrix() -> set[str]:
     return set(re.findall(r'"(\d+\.\d+)"', match.group(1)))
 
 
+def _required_versions() -> set[str]:
+    """The versions the manifest implies: floor from ``requires-python``, ceiling
+    from the highest classifier declared.
+
+    Derived, never hand-written. A test that spells out ``{"3.10", "3.11",
+    "3.12", "3.13"}`` structurally cannot notice a version missing from that
+    literal -- which is precisely how 3.14 stayed unclassified while the suite
+    was green and ``requires-python = ">=3.10"`` claimed it.
+    """
+    floor = tuple(int(part) for part in re.search(r">=(\d+)\.(\d+)", PROJECT["requires-python"]).groups())
+    ceiling = max(tuple(int(p) for p in v.split(".")) for v in _python_classifiers())
+    # CPython minor versions are contiguous within a major, so the run from
+    # (major, minor) floor to (major, minor) ceiling is a simple count.
+    assert floor[0] == ceiling[0], f"range spans majors: {floor} to {ceiling}"
+    return {f"{floor[0]}.{minor}" for minor in range(floor[1], ceiling[1] + 1)}
+
+
 def _python_classifiers() -> set[str]:
     return {
         classifier.rsplit(" ", 1)[1]
@@ -79,6 +96,35 @@ def test_ci_matrix_matches_the_python_classifiers() -> None:
     assert not untested, (
         f"pyproject.toml advertises Python {untested} but no CI leg tests it; add "
         f"{untested[0]} to the matrix in .github/workflows/ci.yml"
+    )
+
+
+def test_the_declared_versions_are_a_contiguous_run() -> None:
+    """No hole between the ``requires-python`` floor and the newest classifier.
+
+    ``requires-python = ">=3.10"`` plus a ``3.14`` classifier *implies* 3.11,
+    3.12 and 3.13: pip will install this package on each of them. Every version
+    in that interval must therefore be both classified (so PyPI's version filter
+    shows it) and on a CI leg (so the claim is tested).
+
+    Deriving the set from the two ends of the range is what makes this load
+    bearing. Comparing the classifier list against a hand-typed list of the same
+    names cannot fail on a version missing from both, and the matrix/classifier
+    agreement test above has that blind spot: dropping 3.13 out of *both* kept
+    every assertion passing.
+    """
+    required = _required_versions()
+    declared = _python_classifiers()
+    missing = sorted(required - declared, key=lambda v: tuple(int(p) for p in v.split(".")))
+    assert not missing, (
+        f"Python {missing} is installable (requires-python {PROJECT['requires-python']!r}) "
+        f"and sits below the newest declared classifier, but carries no "
+        f"Programming Language :: Python :: classifier; PyPI's version filter hides "
+        f"the package from users on {missing[0]}"
+    )
+    assert not (declared - required), (
+        f"classifiers declare {sorted(declared - required)}, which requires-python "
+        f"{PROJECT['requires-python']!r} does not allow to install"
     )
 
 

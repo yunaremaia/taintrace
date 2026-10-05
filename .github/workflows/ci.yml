@@ -7,7 +7,12 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        # Keep this in step with the Programming Language :: Python :: 3.x
+        # classifiers in pyproject.toml. 3.14 is the current stable release and
+        # PyPI's version filter hides a package from anyone filtering by it
+        # unless the matching classifier is published, so a leg missing here
+        # means an untested version advertised as tested (or vice versa).
+        python-version: ["3.10", "3.11", "3.12", "3.14"]
     steps:
       - uses: actions/checkout@v7
       - name: Set up Python ${{ matrix.python-version }}

@@ -10,6 +10,8 @@ notices until the next release is cut.
 
 from __future__ import annotations
 
+import re
+import sys
 from pathlib import Path
 
 try:  # Python 3.11+
@@ -23,6 +25,79 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 PROJECT = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
 README = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
 MKDOCS_YML = REPO_ROOT / "mkdocs.yml"
+CI_YML = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+
+
+def _test_matrix() -> set[str]:
+    """The ``python-version`` matrix in the test job, read as text.
+
+    ``PyYAML`` is not a test dependency and importing yaml here would fail CI's
+    ``test`` job, so the one list is extracted from the workflow text instead.
+    """
+    text = CI_YML.read_text(encoding="utf-8")
+    match = re.search(r"python-version:\s*\[(.*?)\]", text, re.DOTALL)
+    assert match, "ci.yml declares no python-version list for the test job"
+    return set(re.findall(r'"(\d+\.\d+)"', match.group(1)))
+
+
+def _python_classifiers() -> set[str]:
+    return {
+        classifier.rsplit(" ", 1)[1]
+        for classifier in PROJECT.get("classifiers", [])
+        if classifier.startswith("Programming Language :: Python :: ")
+        and re.fullmatch(r"\d+\.\d+", classifier.rsplit(" ", 1)[1])
+    }
+
+
+def test_ci_matrix_matches_the_python_classifiers() -> None:
+    """The tested versions and the advertised versions must be the same set.
+
+    Both are hand-maintained lists and nothing enforces agreement, so a version
+    gets skipped when someone transcribes it -- exactly what left 3.13 and 3.14
+    advertised as untested while ``requires-python = ">=3.10"`` claimed them.
+
+    The mismatch matters in both directions. A tested version with no classifier
+    is invisible in PyPI's version filter, so nobody looking for support on the
+    interpreter they actually run can find the package. A classified version
+    with no CI leg is the worse one: the badge says it works and no job would
+    ever notice if it stopped.
+    """
+    matrix = _test_matrix()
+    classifiers = _python_classifiers()
+
+    assert matrix, "the CI test matrix is empty"
+    assert classifiers, "no Programming Language :: Python :: 3.x classifiers declared"
+
+    missing_classifier = sorted(matrix - classifiers)
+    assert not missing_classifier, (
+        f"CI tests Python {missing_classifier} but pyproject.toml has no matching "
+        f"classifier; PyPI's version filter hides the package from those users. "
+        f"Add Programming Language :: Python :: {missing_classifier[0]}"
+    )
+
+    untested = sorted(classifiers - matrix)
+    assert not untested, (
+        f"pyproject.toml advertises Python {untested} but no CI leg tests it; add "
+        f"{untested[0]} to the matrix in .github/workflows/ci.yml"
+    )
+
+
+def test_the_current_stable_python_is_tested_and_classified() -> None:
+    """The running interpreter's version must be one the project claims.
+
+    Every matrix entry is a claim, but this one is checkable: the suite is
+    running on some version of Python right now, so if the project claims
+    support for it the claim had better be backed by a CI leg.
+    """
+    running = f"{sys.version_info.major}.{sys.version_info.minor}"
+    assert running in _test_matrix(), (
+        f"the test suite is running on Python {running} but ci.yml has no "
+        f"{running} leg, so nothing keeps that version working"
+    )
+    assert running in _python_classifiers(), (
+        f"the test suite passes on Python {running} but pyproject.toml does not "
+        f"classify it, so PyPI hides the package from users on {running}"
+    )
 
 #: Where the site is actually published. Read from `mkdocs.yml` as text rather
 #: than imported: `mkdocs` and `PyYAML` are not project dependencies, so a test

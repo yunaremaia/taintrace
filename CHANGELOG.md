@@ -4,6 +4,35 @@ All notable changes to taintrace will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-10-05
+
+### Added
+- **Verified Python 3.14 support.** The `Programming Language :: Python :: 3.14`
+  classifier is published and a 3.14 leg joins the CI test matrix
+  (now 3.10 / 3.11 / 3.12 / 3.14). 3.14 is the current stable release, so PyPI's
+  version filter was hiding taintrace from anyone filtering by the Python they
+  actually run — the package installed fine and simply did not appear. The
+  classifier is only correct because the full suite was run on CPython 3.14.7
+  first: 425 passed, 1 skipped, 100% coverage.
+
+- **A guard against the matrix and the classifiers drifting apart.**
+  `tests/test_pypi_metadata.py` asserts the CI `python-version` list and the
+  `Programming Language :: Python :: 3.x` classifiers are the same set, in both
+  directions. Both were hand-maintained with nothing enforcing agreement, which
+  is how 3.14 went unclassified and untested while `requires-python = ">=3.10"`
+  quietly claimed it. A second test asserts the interpreter the suite is
+  currently running on is one the project claims — the one claim that is always
+  checkable from the inside.
+
+### Fixed
+- **`test_scoring_a_large_java_data_set_stays_fast` no longer fails on a loaded
+  machine.** It measured a single run against a 5-second budget with only ~4x
+  headroom over the real ~1.1s cost, so any CI runner that lost the CPU for a few
+  seconds read as a slow scanner. It now takes the minimum of three runs — the
+  minimum is the scan's own cost, the maximum is mostly a neighbour's — against a
+  10-second budget. The guard is still load-bearing: reverting the Levenshtein
+  comparison to the textbook pure-Python matrix measures 56.7s and fails it.
+
 ## [0.2.3] - 2026-10-04
 
 ### Fixed

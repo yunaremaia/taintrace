@@ -10,6 +10,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 
+from taintrace.config import ConfigError
 from taintrace.detector import TyposquatDetector, DetectionResult
 from taintrace import __version__
 
@@ -17,7 +18,34 @@ from taintrace import __version__
 console = Console()
 
 
-@click.group()
+class ConfigFileError(click.ClickException):
+    """Clean message for a config file that exists but cannot be parsed.
+
+    Exit code 2 keeps it distinct from the exit code 1 the commands use to
+    report suspects found, so a script can tell the two apart.
+    """
+
+    exit_code = 2
+
+
+class TaintraceGroup(click.Group):
+    """Group that reports a malformed config file as a message, not a traceback.
+
+    Every command loads its config through `taintrace.config.load_config`, which
+    raises `ConfigError` for a file it cannot parse. The group is the single
+    point all of them pass through, so it is where the error is turned into a
+    clean message. Exit code 2 distinguishes it from exit code 1, which the
+    commands use to report suspects found.
+    """
+
+    def invoke(self, ctx: click.Context):
+        try:
+            return super().invoke(ctx)
+        except ConfigError as exc:
+            raise ConfigFileError(str(exc)) from exc
+
+
+@click.group(cls=TaintraceGroup)
 @click.version_option(__version__, "-v", "--version")
 def cli():
     """taintrace — typosquat detector for AI coding agent dependencies."""

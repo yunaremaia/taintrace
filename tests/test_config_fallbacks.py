@@ -31,6 +31,7 @@ from taintrace import config as config_module
 from taintrace.config import (
     _parse_toml_file,
     _parse_yaml_file,
+    ConfigError,
     _simple_yaml_fallback,
     find_default_config,
     parse_config_file,
@@ -95,12 +96,27 @@ class TestYamlBackend:
 
         assert _parse_yaml_file(config_file) == {}
 
-    def test_pyyaml_parse_error_yields_an_empty_mapping(self, tmp_path: Path, stub_yaml) -> None:
+    def test_pyyaml_parse_error_propagates_for_the_caller_to_report(self, tmp_path: Path, stub_yaml) -> None:
+        """The helper must not swallow it -- parse_config_file names the file."""
         config_file = tmp_path / ".taintrace.yaml"
         config_file.write_text("threshold: [\n", encoding="utf-8")
         stub_yaml.error = ValueError("malformed YAML")
 
-        assert _parse_yaml_file(config_file) == {}
+        with pytest.raises(ValueError, match="malformed YAML"):
+            _parse_yaml_file(config_file)
+
+    def test_parse_config_file_reports_a_pyyaml_parse_error(self, tmp_path: Path, stub_yaml) -> None:
+        config_file = tmp_path / ".taintrace.yaml"
+        config_file.write_text("threshold: [\n", encoding="utf-8")
+        stub_yaml.error = ValueError("malformed YAML")
+
+        with pytest.raises(ConfigError) as excinfo:
+            parse_config_file(config_file)
+
+        message = str(excinfo.value)
+        assert str(config_file) in message
+        assert "YAML" in message
+        assert "malformed YAML" in message
 
     def test_parse_config_file_uses_the_pyyaml_branch(self, tmp_path: Path, stub_yaml) -> None:
         """End-to-end through the public entry point, not just the helper."""
@@ -340,11 +356,50 @@ class TestParseConfigFileBranches:
 
         assert parse_config_file(config_file) == {"ecosystem": "go"}
 
-    def test_malformed_json_returns_empty(self, tmp_path: Path) -> None:
+    def test_malformed_json_is_reported_not_swallowed(self, tmp_path: Path) -> None:
+        """A corrupt file must not read as "nothing configured"."""
         config_file = tmp_path / ".taintrace.json"
         config_file.write_text("{not json", encoding="utf-8")
 
-        assert parse_config_file(config_file) == {}
+        with pytest.raises(ConfigError) as excinfo:
+            parse_config_file(config_file)
+
+        message = str(excinfo.value)
+        assert str(config_file) in message
+        assert "JSON" in message
+
+    @pytest.mark.parametrize(
+        "name,body,fmt",
+        [
+            (".taintrace.toml", "threshold = 0.5\n[broken\n", "TOML"),
+            (".taintrace.yaml", "threshold: 0.5\n  bad: [unclosed\n", "YAML"),
+            (".taintrace.json", '{"threshold": 0.5,,,}', "JSON"),
+        ],
+    )
+    def test_every_format_reports_a_corrupt_file_the_same_way(
+        self, tmp_path: Path, name: str, body: str, fmt: str
+    ) -> None:
+        """The asymmetry this guards: TOML raised, YAML/JSON silently returned {}."""
+        from taintrace.config import load_config
+
+        config_file = tmp_path / name
+        config_file.write_text(body, encoding="utf-8")
+
+        with pytest.raises(ConfigError) as excinfo:
+            load_config(config_path=config_file)
+
+        message = str(excinfo.value)
+        assert str(config_file) in message, message
+        assert fmt in message, message
+        assert excinfo.value.__cause__ is not None, "the parser's own error must be kept"
+
+    def test_a_discovered_corrupt_config_raises_instead_of_using_defaults(self, tmp_path: Path) -> None:
+        from taintrace.config import load_config
+
+        (tmp_path / ".taintrace.yaml").write_text("threshold: 0.9\n  bad: [unclosed\n", encoding="utf-8")
+
+        with pytest.raises(ConfigError, match="malformed YAML"):
+            load_config(cwd=tmp_path)
 
     def test_unknown_extension_is_sniffed_as_toml_then_yaml(self, tmp_path: Path) -> None:
         config_file = tmp_path / ".taintrace.conf"

@@ -84,13 +84,13 @@ def _parse_toml_file(path: Path) -> dict:
 def _parse_yaml_file(path: Path) -> dict:
     try:
         import yaml
-        with open(path, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
     except ImportError:
         # Fallback simple parser for basic YAML key-value pairs and lists
         data = _simple_yaml_fallback(path)
-    except Exception:
-        return {}
+    else:
+        with open(path, "r", encoding="utf-8") as f:
+            # A parse error must reach parse_config_file, which reports it.
+            data = yaml.safe_load(f) or {}
 
     if isinstance(data, dict):
         if "taintrace" in data and isinstance(data["taintrace"], dict):
@@ -139,8 +139,21 @@ def _simple_yaml_fallback(path: Path) -> dict:
     return data
 
 
+class ConfigError(ValueError):
+    """A config file exists but could not be parsed.
+
+    Raising here is deliberate: a corrupt file must never read as "nothing
+    configured", which would silently ship the defaults instead of the
+    user's settings.
+    """
+
+
 def parse_config_file(path: Path) -> dict:
-    """Parse a config file based on its extension."""
+    """Parse a config file based on its extension.
+
+    Raises :class:`ConfigError` naming the file, the format and the parser's
+    own message when the file exists but is malformed.
+    """
     if not path.is_file():
         return {}
 
@@ -148,25 +161,42 @@ def parse_config_file(path: Path) -> dict:
     name = path.name.lower()
 
     if ext in (".toml", "") or name in (".taintrace.toml", "taintrace.toml", ".taintracerc", "pyproject.toml"):
-        data = _parse_toml_file(path)
+        fmt = "TOML"
     elif ext in (".yaml", ".yml") or "yaml" in name or "yml" in name:
-        data = _parse_yaml_file(path)
+        fmt = "YAML"
     elif ext == ".json":
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            if "taintrace" in data and isinstance(data["taintrace"], dict):
-                data = data["taintrace"]
-        except Exception:
-            data = {}
+        fmt = "JSON"
     else:
-        # Try TOML first, then YAML
-        data = _parse_toml_file(path) or _parse_yaml_file(path)
+        fmt = "TOML/YAML"
+
+    try:
+        data = _read_config(path, ext, name)
+    except Exception as exc:
+        raise ConfigError(f"{path}: malformed {fmt} config: {exc}") from exc
 
     if not isinstance(data, dict):
         return {}
 
     return interpolate_env_vars(data)
+
+
+def _read_config(path: Path, ext: str, name: str) -> Any:
+    """Dispatch on format. Parse errors propagate: parse_config_file reports them."""
+    if ext in (".toml", "") or name in (".taintrace.toml", "taintrace.toml", ".taintracerc", "pyproject.toml"):
+        return _parse_toml_file(path)
+
+    if ext in (".yaml", ".yml") or "yaml" in name or "yml" in name:
+        return _parse_yaml_file(path)
+
+    if ext == ".json":
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, dict) and "taintrace" in data and isinstance(data["taintrace"], dict):
+            return data["taintrace"]
+        return data
+
+    # Try TOML first, then YAML
+    return _parse_toml_file(path) or _parse_yaml_file(path)
 
 
 def validate_config(config: dict) -> dict:

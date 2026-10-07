@@ -229,7 +229,7 @@ class LockfileParser:
             if not spec_match:
                 continue
 
-            spec = spec_match.group(1) + (spec_match.group(2) or '')
+            spec = spec_match.group(1)
             name_ver = re.match(r"^(@?[^@]+)@(.+)$", spec)
             if not name_ver:
                 continue

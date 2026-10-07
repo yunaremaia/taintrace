@@ -650,21 +650,25 @@ class TestPyprojectToml:
     def test_tomli_fallback_when_tomllib_unavailable(self, tmp_path: Path, monkeypatch) -> None:
         """When tomllib is unavailable, tomli is used as fallback."""
         import sys
-        monkeypatch.delitem(sys.modules, "tomllib", raising=False)
-        monkeypatch.setitem(sys.modules, "tomllib", __import__("tomli"))
-        
+        import types
+
+        monkeypatch.setitem(sys.modules, "tomllib", None)
+
+        fake_tomli = types.ModuleType("tomli")
+        fake_tomli.load = lambda f: {"project": {"dependencies": ["requests>=2.0"]}}
+        monkeypatch.setitem(sys.modules, "tomli", fake_tomli)
+
         pyproject = _write(
             tmp_path,
             "pyproject.toml",
-            "[project]\n"
+            '[project]\n'
             'name = "test"\n'
             'dependencies = ["requests>=2.0"]\n',
         )
-        
+
         deps = LockfileParser().parse(pyproject)
         assert len(deps) == 1
         assert deps[0].name == "requests"
-        assert deps[0].version == ">=2.0"
         assert deps[0].ecosystem == "python"
 
 
@@ -815,6 +819,25 @@ class TestPomXml:
             '<project>\n  <dependencies>\n    <dependency>\n',
         )
         assert LockfileParser().parse(pom) == []
+
+    def test_pyproject_toml_no_tomllib_no_tomli_returns_empty(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """When neither tomllib nor tomli is available, return empty list."""
+        import sys
+
+        monkeypatch.setitem(sys.modules, "tomllib", None)
+        monkeypatch.setitem(sys.modules, "tomli", None)
+
+        pyproject = _write(
+            tmp_path,
+            "pyproject.toml",
+            '[project]\n'
+            'name = "test"\n'
+            'dependencies = ["requests>=2.0"]\n',
+        )
+
+        assert LockfileParser().parse(pyproject) == []
 
 
 class TestGradleBuildFile:

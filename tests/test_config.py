@@ -11,6 +11,7 @@ from click.testing import CliRunner
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from taintrace import config
 from taintrace.cli import cli
 from taintrace.config import (
     load_config,
@@ -201,3 +202,39 @@ ignore = ["pkg-from-config"]
             ],
         )
         assert result.exit_code == 0
+
+class TestValidEcosystemsDriftGuard:
+    """Guard against VALID_ECOSYSTEMS falling behind the CLI's declared ecosystems.
+
+    See issue #158: java was missing from VALID_ECOSYSTEMS, so load_config
+    silently dropped a legitimate ecosystem="java" pin, and no test noticed.
+    """
+
+    def test_valid_ecosystems_covers_every_lockfile_ecosystem(self) -> None:
+        """Every ecosystem the CLI can auto-detect must be accepted by the config loader."""
+        from taintrace.cli import LOCKFILE_NAMES
+
+        declared = set(LOCKFILE_NAMES.values())
+        missing = declared - config.VALID_ECOSYSTEMS
+        assert not missing, (
+            "config.VALID_ECOSYSTEMS is missing ecosystems declared in "
+            f"cli.LOCKFILE_NAMES: {sorted(missing)}. "
+            f"VALID_ECOSYSTEMS={sorted(config.VALID_ECOSYSTEMS)}"
+        )
+
+    def test_valid_ecosystems_covers_every_extended_format_ecosystem(self) -> None:
+        """Every ecosystem lockfile.EXTENDED_FORMATS can parse must be accepted."""
+        from taintrace.lockfile import EXTENDED_FORMATS
+
+        declared = {eco for eco, _parser in EXTENDED_FORMATS.values()}
+        missing = declared - config.VALID_ECOSYSTEMS
+        assert not missing, (
+            "config.VALID_ECOSYSTEMS is missing ecosystems declared in "
+            f"lockfile.EXTENDED_FORMATS: {sorted(missing)}. "
+            f"VALID_ECOSYSTEMS={sorted(config.VALID_ECOSYSTEMS)}"
+        )
+
+    def test_shipped_java_ecosystem_is_a_valid_config_value(self) -> None:
+        """The exact repro from #151: java must survive config validation."""
+        assert "java" in config.VALID_ECOSYSTEMS
+        assert config.validate_config({"ecosystem": "java"}).get("ecosystem") == "java"

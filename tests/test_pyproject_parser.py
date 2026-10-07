@@ -128,3 +128,25 @@ dependencies = ["requests>=2.28"]
     assert len(deps) == 1
     assert deps[0].name == "requests"
     assert deps[0].ecosystem == "python"
+
+
+def test_pyproject_extras_brackets():
+    """Extras brackets like 'black[d]>=23.0' must not truncate the array."""
+    content = """\
+[project]
+name = "my-project"
+version = "0.1.0"
+dependencies = [
+    "black[d]>=23.0",
+    "requests>=2.28.0",
+    "numpy>=1.24.0",
+]
+"""
+    path = _write_pyproject(content)
+    parser = LockfileParser()
+    deps = parser.parse(path)
+    names = {d.name for d in deps}
+    assert "black" in names
+    assert "requests" in names
+    assert "numpy" in names
+    assert len(deps) == 3

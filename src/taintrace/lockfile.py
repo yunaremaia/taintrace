@@ -191,6 +191,12 @@ class LockfileParser:
             if first_line.startswith("#"):
                 continue
 
+            # Yarn v1 writes ``<descriptor>:`` -- the trailing colon is the
+            # key separator, not part of the descriptor. Any colon INSIDE the
+            # line (``@scope/pkg@npm:1.0.0``, ``local-pkg@workspace:packages/x``)
+            # therefore marks a descriptor this parser cannot split, and the
+            # entry is skipped rather than guessed at. That is also why the
+            # captured spec can never contain ``:``.
             spec_match = re.match(r'^"?([^":]+)"?\s*:?\s*$', first_line)
             if not spec_match:
                 continue
@@ -201,8 +207,6 @@ class LockfileParser:
                 continue
 
             name, version_spec = name_ver.group(1), name_ver.group(2)
-            if "workspace:" in version_spec:
-                continue
 
             version_match = re.search(r'^\s+version\s+"([^"]+)"', block, re.MULTILINE)
             resolved = version_match.group(1) if version_match else version_spec

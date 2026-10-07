@@ -724,7 +724,7 @@ class TestPackageSwift:
 
 
 class TestGradleBuildFile:
-    def test_unmatched_dependency_notation_is_ignored(self, tmp_path: Path) -> None:
+    def test_map_form_dependency_is_parsed(self, tmp_path: Path) -> None:
         build = _write(
             tmp_path,
             "build.gradle",
@@ -734,4 +734,7 @@ class TestGradleBuildFile:
             "}\n",
         )
 
-        assert _names(LockfileParser().parse(build)) == ["com.google.guava:guava"]
+        assert _names(LockfileParser().parse(build)) == [
+            "com.google.guava:guava",
+            "org.example:thing",
+        ]

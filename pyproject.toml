@@ -57,7 +57,7 @@ taintrace = "taintrace.cli:cli"
 [project.optional-dependencies]
 # ruff backs the lint CI job, so it lives here rather than being installed
 # ad hoc in the workflow: local and CI then run the same version.
-dev = ["pytest>=7.0", "pytest-cov>=4.0", "ruff>=0.1"]
+dev = ["pytest>=7.0", "pytest-cov>=4.0", "ruff>=0.16.10"]
 
 [project.urls]
 # Homepage is the documentation site, not the repository: PyPI already renders

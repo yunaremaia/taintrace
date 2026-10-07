@@ -144,3 +144,69 @@ def test_parse_cargo_toml_keeps_workspace_marker_without_root(tmp_path):
     assert [(d.name, d.version, d.ecosystem) for d in deps] == [
         ("serde", "workspace", "rust")
     ]
+
+
+def test_parse_yarn_workspace_skip(tmp_path):
+    """Yarn lockfile with workspace: in version should be skipped."""
+    yarn = tmp_path / "yarn.lock"
+    yarn.write_text(
+        "# yarn lockfile v1\n"
+        "\n"
+        "lodash@^4.17.21:\n"
+        '  version "4.17.21"\n'
+        '  resolved "https://..."\n'
+        "\n"
+        "workspace-pkg@workspace:packages/foo:\n"
+        '  version "1.0.0"\n'
+    )
+    parser = LockfileParser()
+    deps = parser.parse(yarn)
+    names = {d.name for d in deps}
+    assert "lodash" in names
+    assert "workspace-pkg" not in names
+
+
+def test_parse_yarn_version_fallback(tmp_path):
+    """Yarn lockfile without version field falls back to version_spec."""
+    yarn = tmp_path / "yarn.lock"
+    yarn.write_text(
+        "# yarn lockfile v1\n"
+        "\n"
+        "lodash@^4.17.21:\n"
+        '  resolved "https://..."\n'
+    )
+    parser = LockfileParser()
+    deps = parser.parse(yarn)
+    assert len(deps) == 1
+    assert deps[0].name == "lodash"
+    assert deps[0].version == "^4.17.21"
+
+
+def test_pyproject_tomli_fallback(tmp_path, monkeypatch):
+    """When tomllib is unavailable, fall back to tomli."""
+    import sys
+    
+    # Remove tomllib from sys.modules to force ImportError
+    monkeypatch.delitem(sys.modules, "tomllib", raising=False)
+    
+    # Make the import fail
+    real_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
+    
+    def mock_import(name, *args, **kwargs):
+        if name == "tomllib":
+            raise ImportError("No module named 'tomllib'")
+        return real_import(name, *args, **kwargs)
+    
+    monkeypatch.setattr("builtins.__import__", mock_import)
+    
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        "[project]\n"
+        'name = "test"\n'
+        'dependencies = ["requests>=2.0"]\n'
+    )
+    
+    parser = LockfileParser()
+    deps = parser.parse(pyproject)
+    assert len(deps) == 1
+    assert deps[0].name == "requests"

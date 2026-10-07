@@ -451,7 +451,7 @@ class LockfileParser:
             for pkg_path, pkg_info in packages.items():
                 if not pkg_path.startswith("node_modules/"):
                     continue
-                pkg_name = pkg_path.replace("node_modules/", "")
+                pkg_name = pkg_path.removeprefix("node_modules/")
                 version = pkg_info.get("version", "0.0.0")
                 deps.append(Dependency(
                     name=pkg_name,

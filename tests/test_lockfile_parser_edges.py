@@ -505,6 +505,21 @@ class TestPackageLock:
     def test_malformed_json_returns_no_dependencies(self, tmp_path: Path) -> None:
         assert LockfileParser().parse(_write(tmp_path, "package-lock.json", "{not json")) == []
 
+    def test_nested_node_modules_entries_are_not_name_mangled(self, tmp_path: Path) -> None:
+        """str.replace strips every occurrence; removeprefix strips only the leading one."""
+        lockfile = _write(
+            tmp_path,
+            "package-lock.json",
+            '{"packages": {"": {"name": "app"}, "node_modules/lodahs": {"version": "4.17.20"}, '
+            '"node_modules/a/node_modules/lodahs": {"version": "4.17.20"}}}',
+        )
+
+        deps = LockfileParser().parse(lockfile)
+        names = _names(deps)
+        assert "lodahs" in names
+        assert "a/node_modules/lodahs" in names
+        assert "a/lodahs" not in names
+
 
 class TestRequirementsTxt:
     def test_comments_and_blank_lines_are_skipped(self, tmp_path: Path) -> None:

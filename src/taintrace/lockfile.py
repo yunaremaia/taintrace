@@ -490,9 +490,28 @@ class LockfileParser:
                     version=version,
                     ecosystem="node"
                 ))
+            # npm v6 and earlier use a `dependencies` dict instead of `packages`.
+            # Each entry is a package name -> {version, dependencies: {...}}.
+            if not deps and data.get("dependencies"):
+                self._collect_v1_dependencies(data["dependencies"], deps)
         except (json.JSONDecodeError, KeyError):
             pass
         return deps
+
+    @staticmethod
+    def _collect_v1_dependencies(dependencies: dict, deps: List[Dependency]) -> None:
+        """Flatten an npm v1 `dependencies` dict, including nested sub-deps."""
+        for name, info in dependencies.items():
+            if not isinstance(info, dict):
+                continue
+            deps.append(Dependency(
+                name=name,
+                version=info.get("version", "0.0.0"),
+                ecosystem="node",
+            ))
+            nested = info.get("dependencies")
+            if isinstance(nested, dict):
+                LockfileParser._collect_v1_dependencies(nested, deps)
 
     def _parse_requirements(self, path: Path) -> List[Dependency]:
         """Parse requirements.txt (pip)."""
@@ -632,7 +651,8 @@ class LockfileParser:
             BUNDLED WITH
                2.5.11
 
-        Only top-level specs (4-space indent) are included, not sub-dependencies.
+        Only specs lines are included: top-level specs (4-space indent) and
+        their sub-dependencies (6+ space indent).
         """
         deps = []
         content = path.read_text(encoding="utf-8", errors="replace")
@@ -646,9 +666,9 @@ class LockfileParser:
                 in_specs = False
                 continue
             if in_specs and stripped:
-                # Top-level specs have 4-space indent, sub-deps have 6+
+                # Top-level specs have 4-space indent, sub-deps have 6+.
                 indent = len(line) - len(line.lstrip())
-                if indent == 4 and "(" in stripped:
+                if indent >= 4 and "(" in stripped:
                     match = re.match(r'^([a-zA-Z0-9_.-]+)\s+\(([^)]+)\)', stripped)
                     if match:
                         deps.append(Dependency(

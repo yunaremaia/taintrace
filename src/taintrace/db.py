@@ -71,6 +71,16 @@ class KnownPackagesDB:
             coordinate.split(":", 1)[1]: coordinate
             for coordinate in self._JAVA_PACKAGES
         }
+        # Pre-compute lowered name sets once so `is_known` is O(1) instead of
+        # rebuilding the set on every call (#102).
+        self._lowered_packages: Dict[str, set] = {
+            ecosystem: {p.lower() for p in packages}
+            for ecosystem, packages in self._packages.items()
+        }
+
+    # Ecosystems whose package names are case-sensitive; a case-folded match
+    # would produce false positives (Go, Ruby, Java) (#108).
+    _CASE_SENSITIVE_ECOSYSTEMS = frozenset({"go", "ruby", "java"})
 
     def ecosystems(self) -> list[str]:
         """Ecosystems that have known-package data."""
@@ -84,11 +94,15 @@ class KnownPackagesDB:
         """Check if a package name is in the known packages list."""
         packages = self._packages.get(ecosystem, set())
         lowered = name.lower()
-        if lowered in {p.lower() for p in packages}:
+        if ecosystem in self._CASE_SENSITIVE_ECOSYSTEMS:
+            # Exact match only: `Gin` != `gin` in Go/Ruby/Java.
+            if name in packages:
+                return True
+        elif lowered in self._lowered_packages.get(ecosystem, set()):
             return True
         # Java coordinates are `groupId:artifactId`; accept a bare artifactId too.
         if ecosystem == "java" and ":" not in name:
-            return lowered in self._java_artifact_ids
+            return name in self._java_artifact_ids
         return False
 
     def get_similar(self, name: str, threshold: float = 0.8,

@@ -521,6 +521,23 @@ class TestPackageLock:
         assert "a/node_modules/lodahs" in names
         assert "a/lodahs" not in names
 
+    def test_v1_dependencies_format_with_nested_subdeps(self, tmp_path: Path) -> None:
+        """npm v6 lockfiles use a `dependencies` dict, with nested sub-deps."""
+        lockfile = _write(
+            tmp_path,
+            "package-lock.json",
+            '{"dependencies": {'
+            '"lodash": {"version": "4.17.21", "resolved": "https://example/lodash"}, '
+            '"express": {"version": "4.18.2", "dependencies": '
+            '{"accepts": {"version": "1.3.8"}}}}}',
+        )
+
+        names = _names(LockfileParser().parse(lockfile))
+        assert "lodash" in names
+        assert "express" in names
+        # Nested sub-dependency of express is also returned.
+        assert "accepts" in names
+
 
 class TestRequirementsTxt:
     def test_comments_and_blank_lines_are_skipped(self, tmp_path: Path) -> None:

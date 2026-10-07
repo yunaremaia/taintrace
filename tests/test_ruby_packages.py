@@ -35,8 +35,10 @@ def test_check_gemfile_recognises_gems_and_flags_typo(tmp_path):
     assert result.exit_code == 1, result.output
     output = json.loads(result.output)
     results = {item["package"]: item for item in output["results"]}
-    assert output["summary"]["total"] == 3
+    # 3 top-level gems + 1 sub-dependency (actionpack) are now all parsed.
+    assert output["summary"]["total"] == 4
     assert output["summary"]["suspects"] == 1
     assert results["rails"]["risk_score"] == 0
+    assert results["actionpack"]["risk_score"] == 0
     assert results["nokogiri"]["risk_score"] == 0
     assert "nokogiri" in results["nokogirii"]["similar_to"]

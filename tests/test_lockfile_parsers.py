@@ -32,9 +32,9 @@ def test_parse_gemfile_lock_basic(tmp_path):
     names = {d.name for d in deps}
     assert "rails" in names
     assert "nokogiri" in names
-    # Sub-deps should NOT be included (only top-level specs)
-    assert "actioncable" not in names
-    assert "actionmailbox" not in names
+    # Sub-deps are included now that the indent check accepts 6+ spaces.
+    assert "actioncable" in names
+    assert "actionmailbox" in names
     for d in deps:
         assert d.ecosystem == "ruby"
 

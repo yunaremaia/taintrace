@@ -183,6 +183,23 @@ class TestKnownPackagesDB:
         similar = db.get_similar("zzzz-unique-name-zzzz", threshold=0.8)
         assert len(similar) == 0
 
+    def test_case_sensitive_ecosystem_exact_match(self):
+        """Case-sensitive ecosystems (go) do not fold case."""
+        db = KnownPackagesDB()
+        assert db.is_known("gin", ecosystem="go")
+        assert not db.is_known("Gin", ecosystem="go")
+
+    def test_case_insensitive_ecosystem_folded_match(self):
+        """Case-insensitive ecosystems (node) fold case."""
+        db = KnownPackagesDB()
+        assert db.is_known("Lodash", ecosystem="node")
+
+    def test_precomputed_lowered_set_exists(self):
+        """The lowered-name sets are precomputed once at construction."""
+        db = KnownPackagesDB()
+        assert isinstance(db._lowered_packages, dict)
+        assert "rust" in db._lowered_packages
+
 
 # ── Risk Scorer Tests ──────────────────────────────────────────────
 

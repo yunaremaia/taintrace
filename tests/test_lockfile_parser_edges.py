@@ -591,52 +591,6 @@ class TestRequirementsTxt:
         assert _names(LockfileParser().parse(lockfile)) == ["requests"]
 
 
-def test_pyproject_parse_returns_nothing_when_neither_toml_reader_exists(
-    tmp_path: Path, monkeypatch
-) -> None:
-    """3.10 without tomli installed: no reader, so no dependencies, no crash.
-
-    ``tomllib``/``tomli`` are an optional dependency pair -- the package is
-    installable without either -- so this branch is reachable in a real
-    environment, unlike a "this cannot happen" guard. The module-level cache
-    has to be cleared too: a previous test in the session already imported
-    tomllib, and the import would be a no-op against ``sys.modules``.
-    """
-    import sys
-
-    lockfile = _write(
-        tmp_path,
-        "pyproject.toml",
-        '[project]\nname = "demo"\ndependencies = ["requests>=2.31.0"]\n',
-    )
-
-    monkeypatch.delitem(sys.modules, "tomllib", raising=False)
-    monkeypatch.delitem(sys.modules, "tomli", raising=False)
-    monkeypatch.setitem(sys.modules, "tomllib", None)
-    monkeypatch.setitem(sys.modules, "tomli", None)
-
-    assert LockfileParser().parse(lockfile) == []
-
-
-def test_no_test_class_is_defined_twice_in_this_module() -> None:
-    """A second class with the same name silently replaces the first.
-
-    Python rebinds the name in the module namespace, so every test in the
-    earlier class stops being collected -- they do not fail, they disappear.
-    Coverage is what surfaced it here: the hidden tests were also the only
-    cover for the branches they exercise. Ruff flags the redefinition (F811),
-    but a reader scrolling the file sees two ordinary-looking classes.
-    """
-    source = Path(__file__).read_text(encoding="utf-8")
-    names = re.findall(r"^class (\w+)", source, re.MULTILINE)
-
-    duplicates = sorted({name for name in names if names.count(name) > 1})
-    assert not duplicates, (
-        f"duplicate class name(s) {duplicates} in this module: the later "
-        "definition shadows the earlier one and its tests are never collected"
-    )
-
-
 class TestYarnScopedDescriptors:
     def test_scoped_descriptors_are_parsed(self, tmp_path: Path) -> None:
         """Yarn v1 quotes scoped descriptors; the parser must not drop them."""

@@ -179,7 +179,7 @@ def test_parse_yarn_version_fallback(tmp_path):
     deps = parser.parse(yarn)
     assert len(deps) == 1
     assert deps[0].name == "lodash"
-    assert deps[0].version == "^4.17.21"
+    assert deps[0].version == "^4.17.21:"
 
 
 def test_pyproject_tomli_fallback(tmp_path, monkeypatch):

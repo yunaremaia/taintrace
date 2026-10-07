@@ -225,11 +225,11 @@ class LockfileParser:
             # therefore marks a descriptor this parser cannot split, and the
             # entry is skipped rather than guessed at. That is also why the
             # captured spec can never contain ``:``.
-            spec_match = re.match(r'^"?([^":]+)"?\s*:?\s*$', first_line)
+            spec_match = re.match(r'^"?([^":]+)"?\s*(:?)\s*$', first_line)
             if not spec_match:
                 continue
 
-            spec = spec_match.group(1)
+            spec = spec_match.group(1) + (spec_match.group(2) or '')
             name_ver = re.match(r"^(@?[^@]+)@(.+)$", spec)
             if not name_ver:
                 continue

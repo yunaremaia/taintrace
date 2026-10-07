@@ -647,6 +647,26 @@ class TestPyprojectToml:
 
         assert LockfileParser().parse(manifest) == []
 
+    def test_tomli_fallback_when_tomllib_unavailable(self, tmp_path: Path, monkeypatch) -> None:
+        """When tomllib is unavailable, tomli is used as fallback."""
+        import sys
+        monkeypatch.delitem(sys.modules, "tomllib", raising=False)
+        monkeypatch.setitem(sys.modules, "tomllib", __import__("tomli"))
+        
+        pyproject = _write(
+            tmp_path,
+            "pyproject.toml",
+            "[project]\n"
+            'name = "test"\n'
+            'dependencies = ["requests>=2.0"]\n',
+        )
+        
+        deps = LockfileParser().parse(pyproject)
+        assert len(deps) == 1
+        assert deps[0].name == "requests"
+        assert deps[0].version == ">=2.0"
+        assert deps[0].ecosystem == "python"
+
 
 class TestPackageResolved:
     def test_pin_with_a_non_dict_state(self, tmp_path: Path) -> None:
@@ -785,6 +805,15 @@ class TestPomXml:
             "</project>\n",
         )
 
+        assert LockfileParser().parse(pom) == []
+
+    def test_pom_xml_invalid_returns_empty(self, tmp_path: Path) -> None:
+        """Invalid XML (ParseError) should return empty list, not raise."""
+        pom = _write(
+            tmp_path,
+            "pom.xml",
+            '<project>\n  <dependencies>\n    <dependency>\n',
+        )
         assert LockfileParser().parse(pom) == []
 
 

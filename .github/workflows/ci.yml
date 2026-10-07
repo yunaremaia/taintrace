@@ -59,9 +59,12 @@ jobs:
       # Without site_url, mkdocs emits an EMPTY <urlset/> and the site drops
       # out of sitemap-based discovery entirely. A green build proves nothing
       # about this, so assert on the artifact instead.
-      - name: Assert the sitemap has entries
+      - name: Check the built site
+        # check_docs_sitemap.py asserts the sitemap has entries AND that every
+        # built page carries a meta description and the Open Graph tags. The
+        # plain grep below is kept as a second, dependency-free witness.
         run: |
-          test -f site/sitemap.xml
+          python scripts/check_docs_sitemap.py --site-dir site/
           count=$(grep -c '<url>' site/sitemap.xml || true)
           echo "sitemap entries: $count"
           test "$count" -gt 0

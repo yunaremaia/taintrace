@@ -1,19 +1,15 @@
 site_name: taintrace
-# site_description is what mkdocs emits as <meta name="description">. Without it
-# the build is green but search engines and link previews have no snippet.
-site_description: Typosquat detector for AI coding agent dependencies
 # site_url is what makes the deployed sitemap.xml and canonical URLs correct.
 # Without it mkdocs emits an EMPTY <urlset/> and the whole site disappears from
 # sitemap-based discovery -- a green build that ships nothing.
 site_url: https://yunaremaia.github.io/taintrace/
+site_description: Typosquat detector for AI coding agent dependencies
 repo_name: yunaremaia/taintrace
 repo_url: https://github.com/yunaremaia/taintrace
 edit_uri: edit/main/docs/
 
 theme:
   name: material
-  # custom_dir is what lets overrides/main.html inject the Open Graph and
-  # Twitter Card tags that mkdocs-material does not emit on its own.
   custom_dir: overrides
   palette:
     - scheme: default

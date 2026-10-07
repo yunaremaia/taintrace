@@ -179,6 +179,7 @@ LOCKFILE_NAMES = {
     "build.gradle": "java",
     "build.gradle.kts": "java",
     "libs.versions.toml": "java",
+    "pom.xml": "java",
 }
 
 _LOWER_LOCKFILE_NAMES = {name.lower(): eco for name, eco in LOCKFILE_NAMES.items()}

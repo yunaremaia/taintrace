@@ -770,6 +770,70 @@ class TestPackageSwift:
         ]
 
 
+class TestPomXml:
+    def test_basic_dependencies(self, tmp_path: Path) -> None:
+        pom = _write(
+            tmp_path,
+            "pom.xml",
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<project xmlns="http://maven.apache.org/POM/4.0.0">\n'
+            "  <dependencies>\n"
+            "    <dependency>\n"
+            "      <groupId>com.google.guava</groupId>\n"
+            "      <artifactId>guava</artifactId>\n"
+            "      <version>33.0.0</version>\n"
+            "    </dependency>\n"
+            "    <dependency>\n"
+            "      <groupId>junit</groupId>\n"
+            "      <artifactId>junit</artifactId>\n"
+            "      <version>4.13.2</version>\n"
+            "    </dependency>\n"
+            "  </dependencies>\n"
+            "</project>\n",
+        )
+
+        deps = LockfileParser().parse(pom)
+
+        assert [(d.name, d.version, d.ecosystem) for d in deps] == [
+            ("com.google.guava:guava", "33.0.0", "java"),
+            ("junit:junit", "4.13.2", "java"),
+        ]
+
+    def test_namespace_handling(self, tmp_path: Path) -> None:
+        """POM without namespace should still parse."""
+        pom = _write(
+            tmp_path,
+            "pom.xml",
+            "<project>\n"
+            "  <dependencies>\n"
+            "    <dependency>\n"
+            "      <groupId>org.example</groupId>\n"
+            "      <artifactId>no-ns</artifactId>\n"
+            "      <version>1.0</version>\n"
+            "    </dependency>\n"
+            "  </dependencies>\n"
+            "</project>\n",
+        )
+
+        deps = LockfileParser().parse(pom)
+
+        assert [(d.name, d.version) for d in deps] == [
+            ("org.example:no-ns", "1.0"),
+        ]
+
+    def test_empty_dependencies(self, tmp_path: Path) -> None:
+        pom = _write(
+            tmp_path,
+            "pom.xml",
+            '<project xmlns="http://maven.apache.org/POM/4.0.0">\n'
+            "  <dependencies>\n"
+            "  </dependencies>\n"
+            "</project>\n",
+        )
+
+        assert LockfileParser().parse(pom) == []
+
+
 class TestGradleBuildFile:
     def test_map_form_dependency_is_parsed(self, tmp_path: Path) -> None:
         build = _write(

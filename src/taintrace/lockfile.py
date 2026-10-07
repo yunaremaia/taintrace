@@ -37,6 +37,7 @@ EXTENDED_FORMATS = {
     "build.gradle": ("java", "_parse_gradle"),
     "build.gradle.kts": ("java", "_parse_gradle"),
     "libs.versions.toml": ("java", "_parse_gradle_version_catalog"),
+    "pom.xml": ("java", "_parse_pom_xml"),
 }
 
 
@@ -93,6 +94,33 @@ class LockfileParser:
                 name = match.group(3)
                 version = match.group(4)
             deps.append(Dependency(name=f"{group}:{name}", version=version, ecosystem="java"))
+        return deps
+
+    def _parse_pom_xml(self, path: Path) -> List[Dependency]:
+        """Parse Maven pom.xml dependencies."""
+        import xml.etree.ElementTree as ET
+
+        try:
+            tree = ET.parse(path)
+        except ET.ParseError:
+            return []
+
+        root = tree.getroot()
+        ns = ""
+        if root.tag.startswith("{"):
+            ns = root.tag.split("}")[0] + "}"
+
+        deps = []
+        for dep in root.iter(f"{ns}dependency"):
+            group = dep.findtext(f"{ns}groupId", default="")
+            artifact = dep.findtext(f"{ns}artifactId", default="")
+            version = dep.findtext(f"{ns}version", default="")
+            if group and artifact:
+                deps.append(Dependency(
+                    name=f"{group}:{artifact}",
+                    version=version,
+                    ecosystem="java",
+                ))
         return deps
 
     def _parse_gradle_version_catalog(self, path: Path) -> List[Dependency]:

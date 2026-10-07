@@ -65,14 +65,33 @@ class LockfileParser:
         """Parse literal Maven coordinates from Gradle Groovy/Kotlin build files."""
         content = path.read_text(encoding="utf-8", errors="replace")
         deps = []
+        config_pattern = (
+            r"\b(?:implementation|api|compileOnly|runtimeOnly|"
+            r"testImplementation|testCompileOnly|testRuntimeOnly|"
+            r"testFixturesImplementation|testFixturesCompileOnly|testFixturesRuntimeOnly|"
+            r"annotationProcessor|kapt|kaptTest|kaptAndroidTest|"
+            r"debugImplementation|debugCompileOnly|debugRuntimeOnly|"
+            r"releaseImplementation|releaseCompileOnly|releaseRuntimeOnly|"
+            r"developmentOnly|"
+            r"androidTestImplementation|androidTestCompileOnly|androidTestRuntimeOnly|"
+            r"compileOnlyApi|testAnnotationProcessor|classpath)\s*"
+        )
         pattern = re.compile(
-            r"(?:implementation|api|compileOnly|runtimeOnly|testImplementation|"
-            r"testCompileOnly|testRuntimeOnly|annotationProcessor|kapt)\s*"
+            config_pattern +
+            r"(?:"
             r"(?:\(\s*)?[\"']([^\"']+:[^\"']+:[^\"']+)[\"']"
+            r"|"
+            r"group:\s*[\"']([^\"']+)[\"']\s*,\s*name:\s*[\"']([^\"']+)[\"']\s*,\s*version:\s*[\"']([^\"']+)[\"']"
+            r")"
         )
         for match in pattern.finditer(content):
-            coordinate = match.group(1)
-            group, name, version = coordinate.split(":", 2)
+            if match.group(1):
+                coordinate = match.group(1)
+                group, name, version = coordinate.split(":", 2)
+            else:
+                group = match.group(2)
+                name = match.group(3)
+                version = match.group(4)
             deps.append(Dependency(name=f"{group}:{name}", version=version, ecosystem="java"))
         return deps
 

@@ -185,27 +185,33 @@ def test_parse_yarn_version_fallback(tmp_path):
 def test_pyproject_tomli_fallback(tmp_path, monkeypatch):
     """When tomllib is unavailable, fall back to tomli."""
     import sys
-    
+    import types
+
     # Remove tomllib from sys.modules to force ImportError
     monkeypatch.delitem(sys.modules, "tomllib", raising=False)
-    
+
+    # Provide a fake tomli module with a load function
+    fake_tomli = types.ModuleType("tomli")
+    fake_tomli.load = lambda f: {"project": {"dependencies": ["requests>=2.0"]}}
+    monkeypatch.setitem(sys.modules, "tomli", fake_tomli)
+
     # Make the import fail
     real_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
-    
+
     def mock_import(name, *args, **kwargs):
         if name == "tomllib":
             raise ImportError("No module named 'tomllib'")
         return real_import(name, *args, **kwargs)
-    
+
     monkeypatch.setattr("builtins.__import__", mock_import)
-    
+
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
         "[project]\n"
         'name = "test"\n'
         'dependencies = ["requests>=2.0"]\n'
     )
-    
+
     parser = LockfileParser()
     deps = parser.parse(pyproject)
     assert len(deps) == 1

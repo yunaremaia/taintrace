@@ -534,6 +534,46 @@ class TestRequirementsTxt:
 
         assert _names(LockfileParser().parse(lockfile)) == ["requests"]
 
+    def test_pip_options_are_skipped(self, tmp_path: Path) -> None:
+        """Lines starting with - are pip options, not package names."""
+        lockfile = _write(
+            tmp_path,
+            "requirements.txt",
+            "--index-url https://pypi.org/simple\n"
+            "-r other-requirements.txt\n"
+            "-e .\n"
+            "--find-links https://example.com/packages\n"
+            "-c constraints.txt\n"
+            "requests==2.31.0\n",
+        )
+
+        assert _names(LockfileParser().parse(lockfile)) == ["requests"]
+
+    def test_direct_urls_are_skipped(self, tmp_path: Path) -> None:
+        """Direct URL references are not package names."""
+        lockfile = _write(
+            tmp_path,
+            "requirements.txt",
+            "https://example.com/package.tar.gz\n"
+            "git+https://github.com/user/repo.git\n"
+            "svn+https://svn.example.com/repo\n"
+            "requests==2.31.0\n",
+        )
+
+        assert _names(LockfileParser().parse(lockfile)) == ["requests"]
+
+    def test_local_paths_are_skipped(self, tmp_path: Path) -> None:
+        """Local path references are not package names."""
+        lockfile = _write(
+            tmp_path,
+            "requirements.txt",
+            "./local-package\n"
+            "/absolute/path/to/package\n"
+            "requests==2.31.0\n",
+        )
+
+        assert _names(LockfileParser().parse(lockfile)) == ["requests"]
+
 
 class TestPyprojectToml:
     def test_comments_and_the_python_constraint_are_skipped(self, tmp_path: Path) -> None:

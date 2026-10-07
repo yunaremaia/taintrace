@@ -470,6 +470,15 @@ class LockfileParser:
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
+            # Skip pip options: --index-url, -r, -e, -c, -f, -i, --find-links, etc.
+            if line.startswith("-"):
+                continue
+            # Skip direct URLs: https://, git+https://, svn+https://, etc.
+            if "://" in line:
+                continue
+            # Skip local paths: ./package, /path/to/package
+            if line.startswith("./") or line.startswith("/"):
+                continue
             # Handle "package==1.0.0", "package>=1.0", "package"
             match = re.match(r'^([a-zA-Z0-9_-]+)', line)
             if match:

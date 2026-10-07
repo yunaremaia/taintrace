@@ -101,10 +101,11 @@ source = ["src/taintrace"]
 # the number it reads as. At precision 2 this floor rejects the run as soon as
 # a single further statement goes uncovered.
 #
-# 1093/1094 statements = 99.91%. The one uncovered statement is the trailing
-# `else: clean[key] = v` in validate_config, which is unreachable: every key in
-# VALID_CONFIG_KEYS is matched by an explicit branch above it. If that branch is
-# ever reachable, add a test for it rather than lowering this number.
+# The suite covers every statement (100.00%), so the floor has no headroom
+# left: any new uncovered line fails the run. That is the point -- two silent
+# defects were found this way (a duplicate test class shadowing its own tests,
+# and a guard no input could reach). If a line is genuinely unreachable, delete
+# it rather than lowering this number.
 [tool.coverage.report]
 precision = 2
 fail_under = 99.9

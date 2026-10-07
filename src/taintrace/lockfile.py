@@ -191,7 +191,7 @@ class LockfileParser:
             if first_line.startswith("#"):
                 continue
 
-            spec_match = re.match(r'^"?([^"]+)"?\s*$', first_line)
+            spec_match = re.match(r'^"?([^":]+)"?\s*:?\s*$', first_line)
             if not spec_match:
                 continue
 

@@ -575,6 +575,34 @@ class TestRequirementsTxt:
         assert _names(LockfileParser().parse(lockfile)) == ["requests"]
 
 
+class TestYarn:
+    def test_scoped_descriptors_are_parsed(self, tmp_path: Path) -> None:
+        """Yarn v1 quotes scoped descriptors; the parser must not drop them."""
+        lockfile = _write(
+            tmp_path,
+            "yarn.lock",
+            "# yarn lockfile v1\n"
+            "\n"
+            "lodash@^4.17.21:\n"
+            '  version "4.17.21"\n'
+            '  resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.21.tgz"\n'
+            "\n"
+            '"@babel/core@^7.20.0":\n'
+            '  version "7.20.12"\n'
+            '  resolved "https://registry.yarnpkg.com/@babel/core/-/core-7.20.12.tgz"\n'
+            "\n"
+            '"@types/node@^20.0.0":\n'
+            '  version "20.11.0"\n'
+            '  resolved "https://registry.yarnpkg.com/@types/node/-/node-20.11.0.tgz"\n',
+        )
+
+        deps = LockfileParser().parse(lockfile)
+        names = _names(deps)
+        assert "lodash" in names
+        assert "@babel/core" in names
+        assert "@types/node" in names
+
+
 class TestPyprojectToml:
     def test_comments_and_the_python_constraint_are_skipped(self, tmp_path: Path) -> None:
         manifest = _write(

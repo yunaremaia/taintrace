@@ -116,13 +116,18 @@ class KnownPackagesDB:
             raise UnknownEcosystemError(ecosystem, self.ecosystems())
         from taintrace.similarity import SimilarityEngine
         engine = SimilarityEngine()
-        query = name.lower()
+        case_sensitive = ecosystem in self._CASE_SENSITIVE_ECOSYSTEMS
+        query = name if case_sensitive else name.lower()
         results = []
         for known_name in self._packages[ecosystem]:
-            candidate = known_name.lower()
+            candidate = known_name if case_sensitive else known_name.lower()
             # Skip candidates that cannot reach the threshold, which keeps the
             # java ecosystem (thousands of coordinates) scannable.
             if not engine.could_match(query, candidate, threshold):
+                continue
+            # For case-sensitive ecosystems, skip candidates that differ only
+            # in case (e.g. "Gin" should not match "gin" in Go).
+            if case_sensitive and query.lower() == candidate.lower() and query != candidate:
                 continue
             score = engine.similarity(query, candidate)
             if score >= threshold:

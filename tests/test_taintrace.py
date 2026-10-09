@@ -189,6 +189,13 @@ class TestKnownPackagesDB:
         assert db.is_known("gin", ecosystem="go")
         assert not db.is_known("Gin", ecosystem="go")
 
+    def test_get_similar_case_sensitive_ecosystem(self):
+        """get_similar does not fold case for case-sensitive ecosystems (go)."""
+        db = KnownPackagesDB()
+        similar = db.get_similar("Gin", threshold=0.8, ecosystem="go")
+        names = [name for name, _ in similar]
+        assert "gin" not in names
+
     def test_case_insensitive_ecosystem_folded_match(self):
         """Case-insensitive ecosystems (node) fold case."""
         db = KnownPackagesDB()

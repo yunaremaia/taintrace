@@ -367,7 +367,7 @@ class LockfileParser:
         # name -> (precedence, order, version); first declaration wins at equal
         # precedence so the production entry beats dev/build copies (#65/#72).
         found: dict[str, Tuple[int, int, str]] = {}
-        order = 0
+        next_order = 0
 
         section_kind: Optional[Tuple[int, Optional[str]]] = None
         sub_table: Optional[str] = None
@@ -375,14 +375,17 @@ class LockfileParser:
         pending_spec: List[str] = []
 
         def record(name: str, precedence: int, version: str) -> None:
-            nonlocal order
+            nonlocal next_order
             existing = found.get(name)
             if existing is not None and existing[0] <= precedence:
                 return
             if existing is not None:
-                order -= 1  # re-insert the upgraded entry at this position
+                # Upgrade: keep the original declaration position (#174).
+                order = existing[1]
+            else:
+                order = next_order
+                next_order += 1
             found[name] = (precedence, order, version)
-            order += 1
 
         def flush_pending() -> None:
             """Commit a multi-line inline table, e.g. ``rand = {`` ... ``}``."""

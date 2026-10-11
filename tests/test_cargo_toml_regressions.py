@@ -235,3 +235,34 @@ class TestWorkspaceInheritance:
                      '[dependencies.tokio]\nversion.workspace = true\n',
                      name="workspace/member/Cargo.toml")
         assert [(d.name, d.version) for d in deps] == [("tokio", "1.28")]
+
+
+class TestDeclarationOrder:
+    """#174: a crate declared in multiple sections keeps its original position."""
+
+    def test_upgrade_preserves_original_position(self, tmp_path):
+        # rand is declared first in [dev-dependencies], then "upgraded" in
+        # [dependencies] — it must stay at position 0 in the output.
+        deps = _parse(tmp_path, """[dev-dependencies]
+rand = "0.8"
+
+[dependencies]
+serde = "1.0"
+tokio = "1.0"
+rand = "2.0"
+""")
+        assert [(d.name, d.version) for d in deps] == [
+            ("rand", "2.0"),
+            ("serde", "1.0"),
+            ("tokio", "1.0"),
+        ]
+
+    def test_first_declaration_wins_at_equal_precedence(self, tmp_path):
+        # At equal precedence the first declaration wins (existing behaviour).
+        deps = _parse(tmp_path, """[dependencies]
+serde = "1.0"
+
+[dependencies]
+serde = "2.0"
+""")
+        assert [(d.name, d.version) for d in deps] == [("serde", "1.0")]
